@@ -182,6 +182,9 @@ test("the next turn replays earlier messages (memory survives)", async () => {
   assert.ok(prompt.includes("ship the feature"), "earlier user turn must be replayed");
   assert.ok(prompt.includes("now add a test for it"), "current turn must be included");
   assert.equal(last.input[0].role, "system");
+  assert.match(last.input[0].content, /Be warm, respectful, direct, and constructive/);
+  assert.match(last.input[0].content, /offer the closest practical path toward the same goal/);
+  assert.match(last.input[0].content, /Do not promise "yes" when it would be misleading/);
 });
 
 test("history is persisted and listed for the signed-in user", async () => {
