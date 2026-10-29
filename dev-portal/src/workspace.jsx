@@ -19,7 +19,7 @@ function asThreadMessage(message, index) {
   return {
     id: message.id || `history-${index}`,
     role: message.role,
-    content: [{ type: "text", text: message.content || "" }],
+    content: message.content || "",
   };
 }
 

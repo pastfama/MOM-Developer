@@ -1,6 +1,6 @@
 # MOM-Developer — Dev Agent Portal
 
-**dev.fameshire.com** — A personal Dev Agent with Microsoft login that knows you, remembers everything, and has full context on your Azure estate and GitHub repositories.
+**dev.fameshire.com** — A personal Dev Agent with Microsoft login, saved conversations, and configured Azure/GitHub context.
 
 ## What it is
 

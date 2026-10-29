@@ -32,6 +32,8 @@ test("the chat uses assistant-ui and preserves saved-session navigation", () => 
   assert.match(workspace, /AssistantRuntimeProvider/);
   assert.match(workspace, /useExternalStoreRuntime/);
   assert.match(workspace, /ThreadPrimitive/);
+  assert.match(workspace, /content: message\.content \|\| ""/, "history content must remain plain text in the external store");
+  assert.match(workspace, /text: message\.content/, "the runtime adapter must wrap plain text as a text part");
   assert.match(workspace, /\/api\/dev-agent\/history/);
   assert.match(workspace, /\/api\/sessions/);
   assert.match(workspace, /dev-agent:active:/);

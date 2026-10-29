@@ -109,7 +109,7 @@ journalctl -u dev-agent -n 50 --no-pager
 ## Upgrade / rollback / uninstall
 
 ```bash
-git fetch --tags && git checkout v1.3.0 && sudo ./deploy/install.sh
+git fetch --tags && git checkout v1.3.1 && sudo ./deploy/install.sh
 ```
 
 ```bash
