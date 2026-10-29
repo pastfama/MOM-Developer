@@ -74,11 +74,13 @@
   <!-- MSAL -->
   <script
     src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"
-    onerror="console.error('MSAL CDN failed to load. Check network and CORS.')"
+    onload="window.__msalLoaded = true;"
+    onerror="console.error('MSAL CDN failed to load. Check network and CORS.'); window.__msalError = new Error('MSAL CDN load failed');"
+    defer
   ></script>
-  <script src="js/config.js?v=4"></script>
-  <script src="js/auth.js?v=4"></script>
-  <script src="js/chat.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/config.js?v=5" defer></script>
+  <script src="js/auth.js?v=5" defer></script>
+  <script src="js/chat.js?v=5" defer></script>
+  <script src="js/app.js?v=5" defer></script>
 </body>
 </html>

@@ -3,26 +3,61 @@ let msalInstance = null;
 let currentAccount = null;
 let msalReady = false;
 const msalReadyCallbacks = [];
+let msalLoadError = null;
+
+function log(...args) {
+  console.log("[DevAgent Auth]", ...args);
+}
 
 function onMSALReady(fn) {
   if (msalReady) {
     fn();
+  } else if (msalLoadError) {
+    console.error("[DevAgent Auth] MSAL failed to load:", msalLoadError);
   } else {
     msalReadyCallbacks.push(fn);
   }
 }
 
 function initMSAL() {
-  if (typeof window === "undefined" || typeof window.Msal === "undefined") {
+  if (typeof window === "undefined") {
     setTimeout(initMSAL, 100);
     return;
   }
-  msalInstance = new window.Msal.ClientApplication(msalConfig);
-  msalReady = true;
-  msalReadyCallbacks.forEach((fn) => fn());
+  if (typeof window.Msal === "undefined") {
+    log("MSAL not yet available, polling...");
+    setTimeout(initMSAL, 100);
+    return;
+  }
+  if (typeof msalConfig === "undefined") {
+    log("msalConfig not yet available, polling...");
+    setTimeout(initMSAL, 100);
+    return;
+  }
+  try {
+    const ClientClass = window.Msal.ClientApplication || window.Msal.PublicClientApplication;
+    if (!ClientClass) {
+      throw new Error("Neither ClientApplication nor PublicClientApplication found on window.Msal");
+    }
+    msalInstance = new ClientClass(msalConfig);
+    msalReady = true;
+    log("MSAL initialized successfully");
+    msalReadyCallbacks.forEach((fn) => fn());
+  } catch (e) {
+    msalLoadError = e;
+    console.error("[DevAgent Auth] Failed to initialize MSAL:", e);
+  }
 }
 
 initMSAL();
+
+// Timeout: if MSAL hasn't loaded in 10 seconds, report it
+setTimeout(() => {
+  if (!msalReady && !msalLoadError) {
+    msalLoadError = new Error("MSAL library timed out loading from CDN (10s)");
+    console.error("[DevAgent Auth]", msalLoadError);
+  }
+}, 10000);
 
 function updateUI(account) {
   currentAccount = account;
@@ -32,17 +67,21 @@ function updateUI(account) {
   const userName = document.getElementById("userName");
   const sessionInfo = document.getElementById("sessionInfo");
 
+  if (!userBox || !landing || !chat) {
+    log("DOM elements not ready yet");
+    return;
+  }
+
   if (account) {
-    // Without this, acquireTokenSilent() has no account after a page reload
-    // and every API call goes out without a bearer token.
     msalInstance.setActiveAccount(account);
     userBox.style.display = "flex";
     userName.textContent = account.name || account.username || "Signed in";
     landing.style.display = "none";
     chat.style.display = "flex";
     sessionInfo.textContent = "Signed in";
-    document.getElementById("logoutBtn").onclick = logout;
-    initChat(account);
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) logoutBtn.onclick = logout;
+    if (typeof initChat === "function") initChat(account);
   } else {
     userBox.style.display = "none";
     landing.style.display = "block";
@@ -52,12 +91,14 @@ function updateUI(account) {
 }
 
 async function login() {
+  log("Login button clicked");
   onMSALReady(async () => {
     try {
+      log("Attempting loginPopup...");
       const response = await msalInstance.loginPopup(loginRequest);
       updateUI(msalInstance.getActiveAccount() || response.account);
     } catch (err) {
-      console.error("Login popup failed, falling back to redirect:", err);
+      log("Login popup failed:", err.message, "- falling back to redirect");
       msalInstance.loginRedirect(loginRequest);
     }
   });
@@ -68,7 +109,7 @@ async function logout() {
     try {
       await msalInstance.logoutPopup();
     } catch (e) {
-      console.warn("Logout popup failed:", e && e.message);
+      console.warn("[DevAgent Auth] Logout popup failed:", e && e.message);
     }
     updateUI(null);
     const messages = document.getElementById("messages");
@@ -81,6 +122,7 @@ onMSALReady(() => {
   msalInstance
     .handleRedirectPromise()
     .then((tokenResponse) => {
+      log("Redirect promise resolved");
       if (tokenResponse && tokenResponse.account) {
         msalInstance.setActiveAccount(tokenResponse.account);
         updateUI(tokenResponse.account);
@@ -90,13 +132,22 @@ onMSALReady(() => {
       updateUI(accounts.length ? accounts[0] : null);
     })
     .catch((err) => {
-      console.error("Redirect response error:", err);
+      console.error("[DevAgent Auth] Redirect response error:", err);
       const accounts = msalInstance.getAllAccounts();
       updateUI(accounts.length ? accounts[0] : null);
     });
 });
 
-document.getElementById("loginBtn").addEventListener("click", login);
+const loginBtn = document.getElementById("loginBtn");
+if (loginBtn) {
+  loginBtn.addEventListener("click", (e) => {
+    log("loginBtn click event fired");
+    e.preventDefault();
+    login();
+  });
+} else {
+  log("WARNING: loginBtn element not found!");
+}
 
 // Expose token getter for the chat module.
 window.getAccessToken = async () => {
@@ -125,7 +176,7 @@ window.getAccessToken = async () => {
           });
           resolve(result.accessToken);
         } catch (e2) {
-          console.error("Token acquisition failed:", e2 && e2.message);
+          console.error("[DevAgent Auth] Token acquisition failed:", e2 && e2.message);
           resolve(null);
         }
       }
