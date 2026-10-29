@@ -1,5 +1,5 @@
 // ── MSAL auth ──
-const msalInstance = new msal.ClientApplication(msalConfig);
+const msalInstance = new window.Msal.ClientApplication(msalConfig);
 let currentAccount = null;
 
 function updateUI(account) {
