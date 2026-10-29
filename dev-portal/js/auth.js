@@ -29,9 +29,10 @@ function initMSAL() {
     return;
   }
   try {
-    const ClientClass = window.Msal.ClientApplication || window.Msal.PublicClientApplication;
+    const msalGlobal = window.msal || window.Msal;
+    const ClientClass = msalGlobal?.PublicClientApplication || msalGlobal?.ClientApplication;
     if (!ClientClass) {
-      throw new Error("Neither ClientApplication nor PublicClientApplication found on window.Msal");
+      throw new Error("Neither PublicClientApplication nor ClientApplication found on window.msal");
     }
     msalInstance = new ClientClass(msalConfig);
     msalReady = true;
