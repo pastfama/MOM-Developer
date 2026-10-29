@@ -20,11 +20,17 @@ function onMSALReady(fn) {
 }
 
 function initMSAL() {
-  if (typeof window === "undefined" || typeof window.Msal === "undefined") {
+  if (typeof window === "undefined") {
+    setTimeout(initMSAL, 100);
+    return;
+  }
+  if (typeof window.msal === "undefined" && typeof window.Msal === "undefined") {
+    log("MSAL not yet available, polling...");
     setTimeout(initMSAL, 100);
     return;
   }
   if (typeof msalConfig === "undefined") {
+    log("msalConfig not yet available, polling...");
     setTimeout(initMSAL, 100);
     return;
   }
