@@ -20,17 +20,11 @@ function onMSALReady(fn) {
 }
 
 function initMSAL() {
-  if (typeof window === "undefined") {
-    setTimeout(initMSAL, 100);
-    return;
-  }
-  if (typeof window.Msal === "undefined") {
-    log("MSAL not yet available, polling...");
+  if (typeof window === "undefined" || typeof window.Msal === "undefined") {
     setTimeout(initMSAL, 100);
     return;
   }
   if (typeof msalConfig === "undefined") {
-    log("msalConfig not yet available, polling...");
     setTimeout(initMSAL, 100);
     return;
   }
@@ -54,7 +48,7 @@ initMSAL();
 // Timeout: if MSAL hasn't loaded in 10 seconds, report it
 setTimeout(() => {
   if (!msalReady && !msalLoadError) {
-    msalLoadError = new Error("MSAL library timed out loading from CDN (10s)");
+    msalLoadError = new Error("MSAL library timed out loading (10s)");
     console.error("[DevAgent Auth]", msalLoadError);
   }
 }, 10000);
@@ -68,7 +62,6 @@ function updateUI(account) {
   const sessionInfo = document.getElementById("sessionInfo");
 
   if (!userBox || !landing || !chat) {
-    log("DOM elements not ready yet");
     return;
   }
 
