@@ -37,6 +37,7 @@ MOM-Developer/
 │   ├── session-store.js # Disk-backed per-user conversation store
 │   ├── apply-engine.js  # Writes the agent's file blocks into the repo
 │   └── foundry-auth.js  # Keyless Entra ID auth (App Service + IMDS)
+├── deploy/              # systemd installer + prod runbook (DEPLOY.md)
 ├── test/                # node:test suites (no dependencies)
 ├── server.js            # Local dev server + API
 ├── package.json         # Scripts only — zero dependencies
@@ -139,6 +140,11 @@ npm test                  # run the test suite
 4. Create a client secret and set it as `FOUNDRY_API_KEY` (or use the API key for Foundry auth)
 
 ## Production deployment
+
+See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the one-command VM install
+(`sudo ./deploy/install.sh`, health-checked with automatic rollback) and the
+App Service settings. Releases are immutable and `DATA_DIR` lives outside them,
+so upgrades never delete conversation history.
 
 ### Frontend (Azure Static Web Apps)
 

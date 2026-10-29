@@ -1,0 +1,29 @@
+[Unit]
+Description=Dev Agent portal (dev.fameshire.com)
+Documentation=https://github.com/pastfama/MOM-Developer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__PREFIX__/current
+EnvironmentFile=__ENV_FILE__
+ExecStart=__NODE_BIN__ server.js
+Restart=always
+RestartSec=3
+
+# Hardening. The app must write its own release tree (agent auto-apply) and the
+# shared data dir, so those are the only writable paths.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=__PREFIX__
+
+[Install]
+WantedBy=multi-user.target
