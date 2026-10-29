@@ -23,6 +23,24 @@ function asThreadMessage(message, index) {
   };
 }
 
+const starterPrompts = [
+  {
+    icon: "</>",
+    title: "Explore a repository",
+    prompt: "Give me an overview of my GitHub repositories and suggest a good place to start.",
+  },
+  {
+    icon: "↗",
+    title: "Plan a code change",
+    prompt: "Help me plan a code change. Ask any clarifying questions before suggesting an implementation.",
+  },
+  {
+    icon: "◇",
+    title: "Review Azure resources",
+    prompt: "Summarize the Azure resources available to this agent and how they relate to my project.",
+  },
+];
+
 async function api(path, options = {}) {
   const token = await window.getAccessToken();
   const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
@@ -40,7 +58,7 @@ async function api(path, options = {}) {
   return data;
 }
 
-function ThreadView({ loading, running }) {
+function ThreadView({ loading, running, onNew }) {
   return (
     <ThreadPrimitive.Root className="aui-thread">
       <ThreadPrimitive.Viewport className="aui-viewport">
@@ -60,8 +78,37 @@ function ThreadView({ loading, running }) {
           )}
           {!loading && (
             <ThreadPrimitive.Empty className="thread-welcome">
-              <h2>What are we working on?</h2>
-              <p>Ask about your projects, code, Azure resources, or previous work.</p>
+              <div className="welcome-brand">
+                <span className="welcome-mark" aria-hidden="true">✳</span>
+                <span>Your development workspace</span>
+              </div>
+              <h2>Let’s make your<br /><span>next idea shippable.</span></h2>
+              <p>Bring a question, a bug, or a half-formed idea. Your conversations stay saved to this account.</p>
+              <div className="starter-prompts" aria-label="Suggested prompts">
+                {starterPrompts.map((suggestion) => (
+                  <button
+                    key={suggestion.title}
+                    className="starter-prompt"
+                    type="button"
+                    disabled={loading || running}
+                    onClick={() => onNew({
+                      content: [{ type: "text", text: suggestion.prompt }],
+                    })}
+                  >
+                    <span className="starter-icon" aria-hidden="true">{suggestion.icon}</span>
+                    <span className="starter-copy">
+                      <strong>{suggestion.title}</strong>
+                      <span>{suggestion.prompt}</span>
+                    </span>
+                    <span className="starter-arrow" aria-hidden="true">↗</span>
+                  </button>
+                ))}
+              </div>
+              <div className="welcome-capabilities">
+                <span><i aria-hidden="true" />Conversation memory</span>
+                <span><i aria-hidden="true" />Azure context</span>
+                <span><i aria-hidden="true" />GitHub context</span>
+              </div>
             </ThreadPrimitive.Empty>
           )}
         </div>
@@ -107,7 +154,7 @@ function RuntimeThread({ messages, onNew, loading, running }) {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadView loading={loading} running={running} />
+      <ThreadView loading={loading} running={running} onNew={onNew} />
     </AssistantRuntimeProvider>
   );
 }
@@ -255,34 +302,48 @@ export function ChatWorkspace({ account }) {
   return (
     <div className="chat-layout">
       <aside className="sidebar" aria-label="Saved conversations">
+        <div className="sidebar-workspace">
+          <span className="sidebar-mark" aria-hidden="true">D</span>
+          <span><strong>Dev workspace</strong><small>Fameshire engineering</small></span>
+        </div>
         <button className="btn-new" type="button" onClick={newSession} disabled={loading || running}>
-          + New conversation
+          <span aria-hidden="true">＋</span> New conversation
         </button>
-        <div className="sidebar-label">Saved conversations</div>
-        <div className="session-list">
-          {sessions.length === 0 && !loading && <div className="session-empty">No saved sessions yet.</div>}
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              type="button"
-              className={`session-item${session.id === sessionId ? " active" : ""}`}
-              onClick={() => selectSession(session.id)}
-              disabled={loading || running}
-              aria-current={session.id === sessionId ? "page" : undefined}
-            >
-              <span className="session-title">{session.title || "Untitled conversation"}</span>
-              <span className="session-meta">
-                {session.turns || 0} messages · {session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : ""}
-              </span>
-            </button>
-          ))}
+        <div className="sidebar-section">
+          <div className="sidebar-label">
+            <span>Recent conversations</span>
+            <span className="session-count">{sessions.length}</span>
+          </div>
+          <div className="session-list">
+            {sessions.length === 0 && !loading && <div className="session-empty">Your conversation history will appear here.</div>}
+            {sessions.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                className={`session-item${session.id === sessionId ? " active" : ""}`}
+                onClick={() => selectSession(session.id)}
+                disabled={loading || running}
+                aria-current={session.id === sessionId ? "page" : undefined}
+              >
+                <span className="session-title">{session.title || "Untitled conversation"}</span>
+                <span className="session-meta">
+                  {session.turns || 0} messages · {session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sidebar-memory">
+          <span className="memory-indicator" aria-hidden="true" />
+          <span><strong>Memory enabled</strong><small>Saved to your account</small></span>
         </div>
       </aside>
       <section className="chat-main" aria-label="Conversation">
         <div className="chat-header">
-          <div>
-            <h1>Dev Agent</h1>
-            <p>{account.name || account.username || "Signed in"}</p>
+          <div className="chat-heading">
+            <span className="chat-overline">MOM DEVELOPER <span>/</span> PRIVATE WORKSPACE</span>
+            <h1>Engineering assistant</h1>
+            <p>Working as {account.name || account.username || "signed-in user"}</p>
           </div>
           <span className={`status-label${running ? " is-running" : ""}`} role="status">
             <span className="status-dot" aria-hidden="true" />

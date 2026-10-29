@@ -17,7 +17,7 @@ function applyTheme(theme) {
   toggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
   toggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} theme`);
   document.querySelector('meta[name="theme-color"]').content =
-    theme === "dark" ? "#05070d" : "#f4f6fb";
+    theme === "dark" ? "#09090d" : "#f5f3f8";
 }
 
 const savedTheme = localStorage.getItem("dev-agent:theme");

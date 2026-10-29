@@ -21,8 +21,8 @@ const DATA_ROOT = process.env.DATA_DIR || path.join(ROOT, ".data");
 const FOUNDRY_EP =
   process.env.FOUNDRY_PROJECT_ENDPOINT ||
   "https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry";
-const AGENT_ID = process.env.AGENT_ID || "momtv-developer";
-const AGENT_API_VER = process.env.AGENT_API_VERSION || "2025-05-15-preview";
+const AGENT_ID =
+  process.env.FOUNDRY_MODEL_DEPLOYMENT || process.env.AGENT_ID || "gpt-4.1-mini";
 const FOUNDRY_KEY = process.env.FOUNDRY_API_KEY || "";
 // Managed identity is the default; ENTRA ID needs no secret at all.
 // auto = try identity, fall back to FOUNDRY_API_KEY | entra = identity only | key = key only
@@ -314,12 +314,12 @@ async function handleAgentTurn(req, res) {
     });
   }
 
-  const endpoint = `${FOUNDRY_EP}/agents/${AGENT_ID}/endpoint/protocols/openai/responses?api-version=${AGENT_API_VER}`;
+  const endpoint = `${FOUNDRY_EP}/openai/v1/responses`;
   const callAgent = (auth) =>
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth.headers },
-      body: JSON.stringify({ model: "gpt-4.1-mini", input }),
+      body: JSON.stringify({ model: AGENT_ID, input }),
     });
 
   let responseText;

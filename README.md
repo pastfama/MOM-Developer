@@ -18,7 +18,7 @@ A landing page with Microsoft Entra ID (Azure AD) single sign-on, plus a chat in
 | Frontend | React + assistant-ui, built with Vite |
 | Auth | Microsoft Entra ID via MSAL Browser |
 | API | The same Node.js HTTP server as the frontend — one process, one origin |
-| LLM | Foundry agent `momtv-developer` (gpt-4.1-mini) via Responses API |
+| LLM | Foundry model deployment via the project Responses API (`/openai/v1`) |
 | Memory | Disk-backed per-user sessions (`.data/`), survives restarts and deploys |
 | Hosting | Single Linux VM — node behind Caddy (automatic HTTPS) |
 
@@ -121,11 +121,11 @@ npm test                  # run the test suite
 | `PORT` | Local server port | `3000` |
 | `FOUNDRY_API_KEY` | Fallback API key — **not needed** when a managed identity is available | *(optional)* |
 | `FOUNDRY_AUTH` | `auto` (identity, then key) \| `entra` (identity only) \| `key` | `auto` |
-| `FOUNDRY_TOKEN_SCOPE` | Entra scope for the agent endpoint | `https://ai.azure.com/.default` |
+| `FOUNDRY_TOKEN_SCOPE` | Entra scope for the Foundry endpoint | `https://ai.azure.com/.default` |
 | `FOUNDRY_CLIENT_ID` | Client id of a *user-assigned* identity, if used | *(system-assigned)* |
 | `FOUNDRY_PROJECT_ENDPOINT` | Foundry project endpoint | `https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry` |
-| `AGENT_ID` | Foundry agent name | `momtv-developer` |
-| `AGENT_API_VERSION` | Foundry API version | `2025-05-15-preview` |
+| `FOUNDRY_MODEL_DEPLOYMENT` | Foundry model deployment name | `gpt-4.1-mini` |
+| `AGENT_ID` | Legacy alias for `FOUNDRY_MODEL_DEPLOYMENT` | *(unset)* |
 | `GITHUB_PAT` | GitHub personal access token (repo + read:user) | *(required for repo context)* |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `8cce2fe7-7c75-4969-9da9-707aadd13e52` |
 | `AZURE_TENANT_ID` | Azure AD tenant ID | `185b412d-bddc-454b-9987-40628582c63c` |

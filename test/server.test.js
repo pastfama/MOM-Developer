@@ -12,6 +12,7 @@ let DATA_DIR;
 let APPLY_ROOT;
 let activeSessionId;
 const realFetch = global.fetch;
+const foundryEndpoints = [];
 
 // ── Stub the outside world: Foundry, Azure IMDS, Microsoft Graph ──
 const foundryCalls = [];
@@ -33,6 +34,9 @@ test.before(async () => {
   process.env.DATA_DIR = DATA_DIR;
   process.env.DEV_AGENT_APPLY_ROOT = APPLY_ROOT;
   process.env.FOUNDRY_API_KEY = "test-key";
+  process.env.FOUNDRY_PROJECT_ENDPOINT =
+    "https://unit-test.services.ai.azure.com/api/projects/unit-test";
+  process.env.FOUNDRY_MODEL_DEPLOYMENT = "unit-test-deployment";
   process.env.GITHUB_PAT = "";
   process.env.DEV_AGENT_AUTO_APPLY = "1";
 
@@ -46,6 +50,7 @@ test.before(async () => {
       return new Response("{}", { status: 500, headers: { "content-type": "application/json" } });
     }
     if (u.includes("services.ai.azure.com")) {
+      foundryEndpoints.push(u);
       foundryCalls.push(JSON.parse(opts.body || "{}"));
       return new Response(JSON.stringify({ output_text: AGENT_REPLY }), {
         status: 200,
@@ -154,6 +159,11 @@ test("a turn writes the agent's files into the repo", async () => {
   assert.equal(data.applied.length, 1);
   assert.equal(data.applied[0].path, "dev-portal/js/feature.js");
   assert.equal(data.applied[0].action, "created");
+  assert.equal(
+    foundryEndpoints.at(-1),
+    "https://unit-test.services.ai.azure.com/api/projects/unit-test/openai/v1/responses"
+  );
+  assert.equal(foundryCalls.at(-1).model, "unit-test-deployment");
   activeSessionId = data.sessionId;
   assert.ok(activeSessionId, "server must return the session id");
   const written = await fsp.readFile(path.join(APPLY_ROOT, "dev-portal/js/feature.js"), "utf8");

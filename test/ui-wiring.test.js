@@ -39,6 +39,13 @@ test("the chat uses assistant-ui and preserves saved-session navigation", () => 
   assert.match(workspace, /dev-agent:active:/);
 });
 
+test("the empty workspace offers clickable starter prompts", () => {
+  assert.match(workspace, /starterPrompts\.map/);
+  assert.match(workspace, /onClick=\{\(\) => onNew/);
+  assert.match(workspace, /className="starter-prompts"/);
+  assert.match(styles, /\.starter-prompt:hover/);
+});
+
 test("dark and light themes are persisted and follow system preference initially", () => {
   assert.match(main, /dev-agent:theme/);
   assert.match(main, /prefers-color-scheme: light/);
