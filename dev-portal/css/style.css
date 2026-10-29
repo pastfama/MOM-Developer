@@ -101,3 +101,74 @@ body { height: 100vh; display: flex; flex-direction: column; }
   background: #0a0c14; flex-shrink: 0;
 }
 .sep { color: #33394c; }
+
+/* ── Two-column chat shell: saved sessions + thread ── */
+.chat-panel { max-width: 900px; }
+.chat-layout { display: flex; gap: 16px; height: 100%; min-height: 0; }
+.chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+
+.sidebar {
+  width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;
+  border-right: 1px solid #1f2330; padding-right: 14px; min-height: 0;
+}
+.btn-new {
+  padding: 9px 12px; background: #3b82f6; color: #05070d; border: none;
+  border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.btn-new:hover { background: #60a5fa; }
+.sidebar-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #6b7280; font-weight: 600;
+}
+.session-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+.session-item {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; width: 100%;
+  padding: 8px 10px; background: #0c0e17; border: 1px solid #1f2330;
+  border-radius: 8px; color: #e8eaed; cursor: pointer; font-family: inherit;
+}
+.session-item:hover { border-color: #33394c; background: #11141f; }
+.session-item.active { border-color: #3b82f6; background: #101827; }
+.session-item .st {
+  font-size: 12.5px; font-weight: 600; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.session-item .sm { font-size: 10.5px; color: #7a7f8c; }
+.session-empty { font-size: 12px; color: #6b7280; font-style: italic; padding: 4px 2px; }
+
+/* Code blocks and inline code inside messages */
+.msg-bubble code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; background: #11141f; border: 1px solid #262c3a;
+  border-radius: 4px; padding: 1px 5px; color: #a5d6ff;
+}
+.msg-bubble pre.code {
+  margin: 8px 0; padding: 10px 12px; background: #080a11; border: 1px solid #1f2330;
+  border-radius: 8px; overflow-x: auto; white-space: pre; max-width: 100%;
+}
+.msg-bubble pre.code code { background: none; border: none; padding: 0; color: #c8d3e0; }
+.msg.user .msg-bubble code { background: rgba(5,7,13,.18); border-color: rgba(5,7,13,.3); color: #03121f; }
+
+/* Files the agent actually wrote to the repo */
+.applied {
+  margin-top: 10px; padding: 9px 10px; border: 1px solid #1d3a2a;
+  background: #08140e; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+.applied-title {
+  width: 100%; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #4ade80; font-weight: 700;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px;
+  background: #0d1b13; border: 1px solid #22c55e33; border-radius: 20px;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: #86efac;
+}
+.chip em { font-style: normal; color: #4b7a60; font-size: 10px; text-transform: uppercase; }
+.chip.bad { background: #1b0d0d; border-color: #ef444433; color: #fca5a5; }
+.chip.bad em { color: #8a5a5a; }
+
+@media (max-width: 720px) {
+  .chat-layout { flex-direction: column; gap: 10px; }
+  .sidebar { width: auto; border-right: none; border-bottom: 1px solid #1f2330; padding: 0 0 10px; }
+  .session-list { flex-direction: row; overflow-x: auto; padding-bottom: 2px; }
+  .session-item { flex: 0 0 150px; }
+}
