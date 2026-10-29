@@ -82,17 +82,25 @@ test("serves the app shell as HTML", async () => {
   assert.match(await res.text(), /Dev Agent/);
 });
 
-test("serves real JavaScript for /js/chat.js (the bug that broke the portal)", async () => {
-  const res = await fetch(base + "/js/chat.js");
+test("serves the built React JavaScript referenced by the app shell", async () => {
+  const shell = await fetch(base + "/");
+  const html = await shell.text();
+  const scriptPath = /<script[^>]+src="([^"]+\.js)"[^>]*><\/script>/.exec(html)?.[1];
+  assert.ok(scriptPath, "built index.html must reference a JavaScript bundle");
+  const res = await fetch(new URL(scriptPath, base));
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /javascript/);
   const body = await res.text();
-  assert.match(body, /initChat/);
+  assert.ok(body.length > 1000, "the application bundle should not be empty");
   assert.ok(!body.includes("<!DOCTYPE html>"), "must not fall back to index.html");
 });
 
-test("serves real CSS for /css/style.css", async () => {
-  const res = await fetch(base + "/css/style.css");
+test("serves the built stylesheet referenced by the app shell", async () => {
+  const shell = await fetch(base + "/");
+  const html = await shell.text();
+  const cssPath = /<link[^>]+href="([^"]+\.css)"[^>]*>/.exec(html)?.[1];
+  assert.ok(cssPath, "built index.html must reference a CSS bundle");
+  const res = await fetch(new URL(cssPath, base));
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /text\/css/);
   assert.ok(!(await res.text()).includes("<!DOCTYPE html>"));
@@ -220,7 +228,11 @@ test("creating a session returns a usable id", async () => {
 });
 
 test("serves the security headers and cache policy SWA used to provide", async () => {
-  const js = await fetch(base + "/js/chat.js");
+  const shell = await fetch(base + "/");
+  const htmlText = await shell.text();
+  const scriptPath = /<script[^>]+src="([^"]+\.js)"[^>]*><\/script>/.exec(htmlText)?.[1];
+  assert.ok(scriptPath, "built index.html must reference a JavaScript bundle");
+  const js = await fetch(new URL(scriptPath, base));
   assert.equal(js.headers.get("x-content-type-options"), "nosniff");
   assert.equal(js.headers.get("x-frame-options"), "SAMEORIGIN");
   assert.match(js.headers.get("referrer-policy"), /strict-origin/);

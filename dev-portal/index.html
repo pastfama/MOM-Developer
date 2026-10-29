@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dev Agent — dev.fameshire.com</title>
-  <meta name="description" content="Personal Dev Agent with Microsoft login. Knows you, remembers everything, knows your Azure and GitHub." />
   <meta name="theme-color" content="#05070d" />
+  <meta name="description" content="Personal Dev Agent with Microsoft login and persistent conversations." />
+  <title>Dev Agent — dev.fameshire.com</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=3" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%2305070d'/%3E%3Ccircle cx='50' cy='50' r='9' fill='%233b82f6'/%3E%3C/svg%3E" />
 </head>
 <body>
@@ -18,64 +18,43 @@
         <span class="mark">D</span><span class="name">Dev Agent</span>
         <span class="subtitle">dev.fameshire.com &bull; Microsoft login</span>
       </div>
-      <div class="user" id="userBox" style="display:none;">
-        <span id="userName"></span>
-        <button id="logoutBtn">Logout</button>
+      <div class="user-actions">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch color theme">Light mode</button>
+        <div class="user" id="userBox" hidden>
+          <span id="userName"></span>
+          <button id="logoutBtn" type="button">Logout</button>
+        </div>
       </div>
     </header>
 
     <main class="wrap">
-      <!-- LOGGED OUT: landing + login -->
       <section id="landing" class="panel">
         <div class="lock-screen">
-          <div class="lock-icon">&#128274;</div>
+          <div class="lock-icon" aria-hidden="true">&#128274;</div>
           <h1>Sign in to your Dev Agent</h1>
-          <p class="lead">Continue with Microsoft. The agent knows who you are, remembers every conversation, and has full context on your Azure estate and GitHub repositories.</p>
+          <p class="lead">Continue with Microsoft. Your conversations are saved to your account, and the agent can use your configured Azure and GitHub context.</p>
           <div class="features">
-            <div class="feat"><span>&#128274;</span><h3>Microsoft Login</h3><p>Entra ID single sign-on. Your identity flows into every agent session.</p></div>
-            <div class="feat"><span>&#128197;</span><h3>Remembers Everything</h3><p>Conversation history is persisted per user — the agent never forgets what you told it.</p></div>
-            <div class="feat"><span>&#128221;</span><h3>Knows Your Azure</h3><p>Live inventory of your Azure resources — subscriptions, resource groups, services, and their state.</p></div>
-            <div class="feat"><span>&#128483;</span><h3>Knows Your GitHub</h3><p>All your repositories, languages, descriptions, and recent activity available to the agent.</p></div>
+            <div class="feat"><span aria-hidden="true">&#128274;</span><div><h3>Microsoft Login</h3><p>Entra ID single sign-on keeps your identity attached to your sessions.</p></div></div>
+            <div class="feat"><span aria-hidden="true">&#128197;</span><div><h3>Saved Conversations</h3><p>Return to your previous sessions after refreshing or signing in again.</p></div></div>
+            <div class="feat"><span aria-hidden="true">&#128221;</span><div><h3>Azure Context</h3><p>Ask about the Azure resources configured for this agent.</p></div></div>
+            <div class="feat"><span aria-hidden="true">&#128483;</span><div><h3>GitHub Context</h3><p>Ask about repositories available to this agent.</p></div></div>
           </div>
-          <button id="loginBtn" class="btn-login">Sign in with Microsoft</button>
+          <button id="loginBtn" class="btn-login" type="button">Sign in with Microsoft</button>
+          <p id="loginError" class="login-error" role="alert" hidden></p>
         </div>
       </section>
 
-      <!-- LOGGED IN: chat -->
-      <section id="chat" class="panel chat-panel" style="display:none;">
-        <div class="chat-layout">
-          <aside class="sidebar">
-            <button id="newSessionBtn" class="btn-new">+ New session</button>
-            <div class="sidebar-label">Saved sessions</div>
-            <div id="sessionList" class="session-list"></div>
-          </aside>
-          <div class="chat-main">
-            <div class="chat-header">
-              <h2>Dev Agent</h2>
-              <span class="status-dot" id="statusDot"></span><span id="statusText">Ready</span>
-            </div>
-            <div class="chat-messages" id="messages"></div>
-            <div class="chat-input-wrap">
-              <input type="text" id="promptInput" placeholder="Ask the Dev Agent anything about your Azure, GitHub, or code&#8230;" autocomplete="off" />
-              <button id="sendBtn">Send</button>
-            </div>
-          </div>
-        </div>
+      <section id="chat" class="panel chat-panel" hidden>
+        <div id="chat-root" class="chat-root"></div>
       </section>
     </main>
 
     <footer class="foot">
       <span>Dev Agent &bull; dev.fameshire.com</span>
-      <span class="sep">&#8226;</span>
+      <span class="sep" aria-hidden="true">&#8226;</span>
       <span id="sessionInfo">No session</span>
     </footer>
   </div>
-
-  <!-- MSAL -->
-  <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-  <script src="js/config.js?v=3"></script>
-  <script src="js/auth.js?v=3"></script>
-  <script src="js/chat.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

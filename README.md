@@ -15,8 +15,8 @@ A landing page with Microsoft Entra ID (Azure AD) single sign-on, plus a chat in
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Vanilla HTML/CSS/JS (no build step) |
-| Auth | Microsoft Entra ID via MSAL Browser (`@azure/msal-browser`) |
+| Frontend | React + assistant-ui, built with Vite |
+| Auth | Microsoft Entra ID via MSAL Browser |
 | API | The same Node.js HTTP server as the frontend — one process, one origin |
 | LLM | Foundry agent `momtv-developer` (gpt-4.1-mini) via Responses API |
 | Memory | Disk-backed per-user sessions (`.data/`), survives restarts and deploys |
@@ -26,13 +26,10 @@ A landing page with Microsoft Entra ID (Azure AD) single sign-on, plus a chat in
 
 ```
 MOM-Developer/
-├── dev-portal/          # Frontend (served by server.js)
-│   ├── index.html       # Landing page + chat UI + saved-session sidebar
-│   ├── css/style.css    # Styles
-│   ├── js/config.js     # MSAL + API config
-│   ├── js/auth.js       # MSAL login/logout/session
-│   ├── js/chat.js       # Chat UI, saved sessions, history replay
-│   └── js/app.js        # Bootstrap
+├── dev-portal/
+│   ├── index.html       # Landing page and chat mount point
+│   ├── src/             # React app, MSAL auth, and assistant-ui runtime
+│   └── css/style.css    # Dark/light theme and portal styles
 ├── lib/
 │   ├── session-store.js # Disk-backed per-user conversation store
 │   ├── apply-engine.js  # Writes the agent's file blocks into the repo
@@ -40,7 +37,9 @@ MOM-Developer/
 ├── deploy/              # systemd installer + prod runbook (DEPLOY.md)
 ├── test/                # node:test suites (no dependencies)
 ├── server.js            # Local dev server + API
-├── package.json         # Scripts only — zero dependencies
+├── package.json         # Vite/React frontend build and tests
+├── package-lock.json    # Reproducible frontend dependencies
+├── vite.config.mjs      # Builds dev-portal/dist for the Node server
 ├── README.md
 └── .gitignore
 ```
@@ -51,7 +50,7 @@ The agent does not hand back snippets to paste. When a change needs code, it is
 instructed to emit each file in full:
 
 ````
-```file:dev-portal/js/chat.js
+```file:dev-portal/src/workspace.jsx
 <complete file contents>
 ```
 ````
@@ -86,13 +85,13 @@ earlier conversation can be reopened.
 | `DELETE` | `/api/sessions/:id` | Delete a session |
 | `GET` | `/api/health` | Config check (key present, auto-apply, data dir) |
 
-Static files are served from `dev-portal/` only. Unknown API routes return JSON,
-never an HTML fallback.
+The React frontend is built to `dev-portal/dist/`; the Node server serves only
+that build output. Unknown API routes return JSON, never an HTML fallback.
 
 ## Tests
 
 ```bash
-npm test        # node --test test/*.test.js
+npm test        # build the frontend, then run node:test suites
 ```
 
 Covers session persistence across restarts, per-user isolation, path-traversal
@@ -102,10 +101,15 @@ stubbed Foundry endpoint (files written, memory replayed on the next turn).
 ## Local development
 
 ```bash
-# Install Node.js (v18+), then:
-npm start                 # same as: node server.js
-# Open: http://localhost:3000
-# Entra redirect URI: http://localhost:3000
+# Install Node.js (v18+) and npm dependencies, then:
+npm ci
+npm run build
+npm start                 # API + built frontend at http://localhost:3000
+
+# Frontend development with hot reload:
+npm start                 # terminal 1: API on port 3000
+npm run dev               # terminal 2: Vite on http://localhost:5173
+# Entra redirect URI for the Vite dev server: http://localhost:5173
 
 npm test                  # run the test suite
 ```
@@ -134,16 +138,17 @@ npm test                  # run the test suite
 1. Register an app in Entra ID (Azure Portal → App registrations → New registration)
    - Name: `fameshire-dev-portal`
    - Supported account types: Accounts in this organizational directory only
-   - Redirect URI (SPA): `http://localhost:3000` (dev) and `https://dev.fameshire.com` (prod)
+   - Redirect URI (SPA): `http://localhost:3000` (built local portal), `http://localhost:5173` (Vite dev), and `https://dev.fameshire.com` (prod)
 2. Add API permission: Microsoft Graph → `User.Read`
-3. Copy the **Application (client) ID** and **Directory (tenant) ID** into `dev-portal/js/config.js`
+3. Configure the **Application (client) ID** and **Directory (tenant) ID** in `dev-portal/src/config.js`
 4. Create a client secret and set it as `FOUNDRY_API_KEY` (or use the API key for Foundry auth)
 
 ## Production deployment
 
-Everything runs on a **single VM as one process**: `server.js` serves `dev-portal/`
-and `/api/*` on the same origin, with Caddy terminating TLS. There is no Static
-Web App and no Function App — one hostname, one process, no CORS.
+Everything runs on a **single VM as one process**: `server.js` serves the built
+React app from `dev-portal/dist/` and `/api/*` on the same origin, with Caddy
+terminating TLS. The installer builds the UI before starting the service.
+There is no Static Web App and no Function App — one hostname, one process, no CORS.
 
 ```bash
 sudo ./deploy/install.sh      # immutable release + health check + auto-rollback

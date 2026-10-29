@@ -1,15 +1,15 @@
 # Deploying to the VM
 
-One process, one origin: `server.js` serves the frontend (`dev-portal/`) and the
-API (`/api/*`) from the same host, behind Caddy for TLS. No Static Web App, no
-Function App, no second hostname — which also means `config.js` needs no API
-base override and MSAL has a single redirect URI.
+One process, one origin: `server.js` serves the built React frontend
+(`dev-portal/dist/`) and the API (`/api/*`) from the same host, behind Caddy for
+TLS. The installer builds the frontend from the checked-in source. No Static
+Web App, no Function App, no second hostname.
 
 ## Topology
 
 | Piece | Runs on | Notes |
 |---|---|---|
-| UI + API | `dev-agent.service` (:3000, loopback) | one node process, no build step, no dependencies |
+| UI + API | `dev-agent.service` (:3000, loopback) | Vite-built React UI + one Node process |
 | TLS | Caddy (:443) | automatic Let's Encrypt, reverse-proxies to :3000 |
 | Sessions | `$PREFIX/shared/.data` | outside the release dir, survives deploys |
 | Model auth | managed identity | keyless; no Foundry key on the box |
@@ -23,7 +23,7 @@ order** so the hostname never resolves to nothing:
 2. Verify through Caddy with the real hostname before touching public DNS:
    ```bash
    curl -s -o /dev/null -w '%{http_code}\n' --resolve dev.fameshire.com:443:<VM-IP> \
-     https://dev.fameshire.com/js/chat.js
+     https://dev.fameshire.com/
    ```
 3. Switch DNS: replace the `azurestaticapps.net` CNAME with an **A record**
    `dev.fameshire.com -> <VM public IP>`. Lower the TTL an hour beforehand.
@@ -42,7 +42,9 @@ order** so the hostname never resolves to nothing:
 
 ## 1. Install the app (systemd)
 
-Requires Node 18+ and `curl` on the VM.
+Requires Node 18+, npm, and `curl` on the VM. The installer installs the locked
+frontend build dependencies, builds the UI, and removes build-only dependencies
+before enabling the service.
 
 ```bash
 sudo ./deploy/install.sh
@@ -90,13 +92,14 @@ Node should never be the public face of the box.
 
 Register `https://dev.fameshire.com` as a **SPA redirect URI** on the
 `fameshire-dev-portal` app registration (Authentication → Single-page
-application → Add URI). Local dev also needs `http://localhost:3000`.
+application → Add URI). Frontend development with Vite also needs
+`http://localhost:5173`; the built local portal uses `http://localhost:3000`.
 
 ## Verify
 
 ```bash
 curl -s localhost:3000/api/health | jq .          # auth mode, scope, data dir
-curl -sI https://dev.fameshire.com/js/chat.js | grep -i content-type   # javascript
+curl -sI https://dev.fameshire.com/ | grep -i content-type             # built portal
 systemctl status dev-agent --no-pager
 journalctl -u dev-agent -n 50 --no-pager
 ```
@@ -106,7 +109,7 @@ journalctl -u dev-agent -n 50 --no-pager
 ## Upgrade / rollback / uninstall
 
 ```bash
-git fetch --tags && git checkout v1.2.0 && sudo ./deploy/install.sh
+git fetch --tags && git checkout v1.3.0 && sudo ./deploy/install.sh
 ```
 
 ```bash

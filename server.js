@@ -1,5 +1,5 @@
 // ── Local dev server for dev.fameshire.com Dev Agent portal ──
-// Run:  node server.js   →  http://localhost:3000
+// Run:  npm run build && node server.js   →  http://localhost:3000
 
 const http = require("http");
 const fs = require("fs");
@@ -14,8 +14,8 @@ const PORT = process.env.PORT || 3000;
 // Behind Caddy/nginx (TLS termination) bind to loopback: HOST=127.0.0.1
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
-// The frontend lives in dev-portal/ — that directory is the web root.
-const STATIC_ROOT = path.join(ROOT, "dev-portal");
+// Vite builds the React frontend to dev-portal/dist/.
+const STATIC_ROOT = path.join(ROOT, "dev-portal", "dist");
 const DATA_ROOT = process.env.DATA_DIR || path.join(ROOT, ".data");
 
 const FOUNDRY_EP =
@@ -217,7 +217,7 @@ ${azureCtx}
 GITHUB REPOSITORIES (user: pastfama):
 ${githubCtx}
 
-THIS REPOSITORY — MOM-Developer is a zero-build project: a vanilla HTML/CSS/JS frontend in dev-portal/ served by a dependency-free Node http server (server.js). There is no React and no Express. Never propose a React component or an npm install unless the user explicitly asks for that stack.
+THIS REPOSITORY — MOM-Developer has a React + assistant-ui frontend in dev-portal/src/, built with Vite into dev-portal/dist/ and served by the Node HTTP server (server.js). The API remains dependency-free and uses the existing routes. Keep frontend changes in React and reuse the existing server API.
 
 HOW TO COMPLETE WORK — You do the job; you do not ask permission and you do not hand back snippets to paste. When a request requires code changes, emit every file in full using this exact fence format:
 
@@ -226,7 +226,7 @@ HOW TO COMPLETE WORK — You do the job; you do not ask permission and you do no
 \`\`\`
 
 Rules for file blocks:
-- Paths are relative to the repository root, e.g. dev-portal/js/chat.js
+- Paths are relative to the repository root, e.g. dev-portal/src/workspace.jsx
 - Always emit the COMPLETE file, never a fragment, diff or "...rest unchanged"
 - Every file you emit is written to the repo automatically the moment you answer
 - Include all files the change needs (HTML, CSS, JS, server routes) in the same reply

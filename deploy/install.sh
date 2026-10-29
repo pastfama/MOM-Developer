@@ -67,15 +67,20 @@ fi
 
 # ── stage the release ──
 install -d -m 0755 "$PREFIX" "$PREFIX/releases" "$RELEASE_DIR" "$DATA_DIR"
-for item in server.js package.json lib dev-portal README.md; do
+for item in server.js package.json package-lock.json vite.config.mjs lib dev-portal README.md; do
   [[ -e "$SOURCE/$item" ]] || die "missing $item in $SOURCE"
   cp -a "$SOURCE/$item" "$RELEASE_DIR/"
 done
 
 # No runtime dependencies, but stay honest if they are ever added.
-if [[ -f "$RELEASE_DIR/package.json" ]] && grep -q '"dependencies"' "$RELEASE_DIR/package.json"; then
-  log "installing npm dependencies"
-  ( cd "$RELEASE_DIR" && npm ci --omit=dev --silent ) || die "npm ci failed"
+if [[ -f "$RELEASE_DIR/package.json" ]] && grep -Eq '"(dependencies|devDependencies)"' "$RELEASE_DIR/package.json"; then
+  log "installing build dependencies"
+  (
+    cd "$RELEASE_DIR"
+    npm ci --silent
+    npm run build --silent
+    npm prune --omit=dev --silent
+  ) || die "frontend build failed"
 fi
 
 if [[ $USE_SYSTEMD -eq 1 ]]; then
