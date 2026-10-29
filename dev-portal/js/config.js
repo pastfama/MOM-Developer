@@ -21,8 +21,11 @@ const loginRequest = {
   prompt: "select_account",
 };
 
-// API backend (local dev server or Azure Function App)
-// Dev: http://localhost:3000/api/dev-agent | Prod: https://momtv-api.azurewebsites.net/api/dev-agent
+// API backend.
+// Prod: same origin. Azure Static Web Apps proxies /api/* to the linked API,
+// so there is no separate hostname to hardcode (the previous value,
+// momtv-api.azurewebsites.net, has no DNS record and broke every call).
+// Dev: the local node server.
 const API_BASE = window.location.origin.includes("localhost")
   ? "http://localhost:3000"
-  : "https://momtv-api.azurewebsites.net";
+  : "";

@@ -52,3 +52,25 @@ test("chat talks to the endpoints the server actually exposes", () => {
   assert.ok(chat.includes('"/api/sessions"'));
   assert.ok(!chat.includes("innerHTML = `<div class=\"msg-bubble\">${content}"), "raw model output must be escaped");
 });
+
+// Production regressions found by probing dev.fameshire.com.
+test("the API base must be same-origin in production", () => {
+  const cfg = read("js/config.js");
+  // Ignore comments; assert on real code only.
+  const code = cfg
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+  // momtv-api.azurewebsites.net has no DNS record; hardcoding it broke every call.
+  assert.ok(!/azurewebsites\.net/.test(code), "no hardcoded API host in code");
+  assert.match(code, /origin\.includes\("localhost"\)/);
+  assert.match(code, /:\s*"";/, "prod falls through to same origin");
+});
+
+test("the static web app config must not disguise failures as 200 HTML", () => {
+  const raw = fs.readFileSync(path.join(portal, "staticwebapp.config.json"), "utf8");
+  const cfg = JSON.parse(raw);
+  // A global 404 -> index.html rewrite made /api/health answer 200 text/html.
+  assert.equal(cfg.responseOverrides, undefined, "no global 404 rewrite");
+  assert.deepEqual(cfg.navigationFallback.exclude, ["/api/*"]);
+});
