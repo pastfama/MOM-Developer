@@ -19,15 +19,14 @@ const STATIC_ROOT = path.join(ROOT, "dev-portal");
 const DATA_ROOT = process.env.DATA_DIR || path.join(ROOT, ".data");
 
 const FOUNDRY_EP =
-  process.env.FOUNDRY_PROJECT_ENDPOINT ||
-  "https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry";
-const AGENT_ID = process.env.AGENT_ID || "momtv-developer";
-const AGENT_API_VER = process.env.AGENT_API_VERSION || "2025-05-15-preview";
+  process.env.FOUNDRY_PROJECT_ENDPOINT || "https://mom-dev-foundry.openai.azure.com";
+const AGENT_ID = process.env.AGENT_ID || "gpt-4o";
+const AGENT_API_VER = process.env.AGENT_API_VERSION || "2024-10-21";
 const FOUNDRY_KEY = process.env.FOUNDRY_API_KEY || "";
 // Managed identity is the default; ENTRA ID needs no secret at all.
 // auto = try identity, fall back to FOUNDRY_API_KEY | entra = identity only | key = key only
 const FOUNDRY_AUTH = (process.env.FOUNDRY_AUTH || "auto").toLowerCase();
-const FOUNDRY_TOKEN_SCOPE = process.env.FOUNDRY_TOKEN_SCOPE || "https://ai.azure.com/.default";
+const FOUNDRY_TOKEN_SCOPE = process.env.FOUNDRY_TOKEN_SCOPE || "https://cognitiveservices.azure.com/.default";
 const FOUNDRY_CLIENT_ID = process.env.FOUNDRY_CLIENT_ID || "";
 const GITHUB_PAT = process.env.GITHUB_PAT || "";
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID || "8cce2fe7-7c75-4969-9da9-707aadd13e52";
@@ -298,14 +297,13 @@ async function handleAgentTurn(req, res) {
     sessionTitle: session.title,
   });
   const history = session.messages.slice(-40).map((m) => ({
-    type: "message",
     role: m.role,
     content: m.content,
   }));
-  const input = [
-    { type: "message", role: "system", content: systemPrompt },
+  const messages = [
+    { role: "system", content: systemPrompt },
     ...history,
-    { type: "message", role: "user", content: message },
+    { role: "user", content: message },
   ];
 
   if (!FOUNDRY_KEY && FOUNDRY_AUTH === "key") {
@@ -314,12 +312,12 @@ async function handleAgentTurn(req, res) {
     });
   }
 
-  const endpoint = `${FOUNDRY_EP}/agents/${AGENT_ID}/endpoint/protocols/openai/responses?api-version=${AGENT_API_VER}`;
+  const endpoint = `${FOUNDRY_EP}/openai/deployments/${AGENT_ID}/chat/completions?api-version=${AGENT_API_VER}`;
   const callAgent = (auth) =>
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth.headers },
-      body: JSON.stringify({ model: "gpt-4.1-mini", input }),
+      body: JSON.stringify({ messages, max_tokens: 1000 }),
     });
 
   let responseText;
