@@ -1,0 +1,48 @@
+# TEMPLATE — not active. Copy to .github/workflows/deploy-frontend.yml to enable.
+#
+# It lives here because the automation token that pushed this branch has no
+# `workflows` permission, so it cannot create files under .github/workflows/.
+#
+# Azure Static Web Apps is NOT linked to this repo yet (no deployments, no
+# environments, no runs), so nothing reaches dev.fameshire.com on push.
+# To enable automatic deploys: Static Web App -> Manage deployment token ->
+# add it as the repo secret AZURE_STATIC_WEB_APPS_API_TOKEN. Without the secret
+# this workflow reports a notice and exits green instead of failing.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  static-web-app:
+    name: Azure Static Web Apps
+    runs-on: ubuntu-latest
+    env:
+      SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+    steps:
+      - name: Explain missing token
+        if: env.SWA_TOKEN == ''
+        run: |
+          echo "::notice title=Deploy skipped::AZURE_STATIC_WEB_APPS_API_TOKEN is not set."
+          echo "Add the Static Web App deployment token as a repo secret to deploy automatically."
+          echo "The API is not deployed by this workflow - /api/* needs a linked Function App."
+
+      - name: Checkout
+        if: env.SWA_TOKEN != ''
+        uses: actions/checkout@v4
+
+      - name: Deploy dev-portal
+        if: env.SWA_TOKEN != ''
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: dev-portal
+          output_location: ""
+          skip_app_build: true

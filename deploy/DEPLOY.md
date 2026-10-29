@@ -1,6 +1,43 @@
 # Deploying to the prod box
 
-Two supported targets. Both are keyless — no Foundry key is deployed.
+## What production actually is (checked 2026-10-29)
+
+`dev.fameshire.com` is an **Azure Static Web App** (`happy-sky-09013861e.3.azurestaticapps.net`),
+not a VM — so the systemd path below only applies if you also run `server.js`
+somewhere. Three facts worth knowing before deploying:
+
+| Finding | Consequence |
+|---|---|
+| The SWA is **not linked to this repo** — no GitHub deployments, environments or Actions runs | nothing deploys on push until a deployment token is added |
+| `momtv-api.azurewebsites.net` (the old prod API base) **has no DNS record** | every `/api/*` call failed; `config.js` now uses the same origin |
+| The SWA rewrote **404 → `index.html` with status 200** | `/api/health` returned `200 text/html`, hiding the failure; that override is removed |
+
+`/api/*` on a Static Web App only works if a **Function App is linked** to it
+(SWA proxies `/api/*`). There is no API deployed behind `dev.fameshire.com`
+today, so the frontend will load but chat cannot answer until one exists.
+
+### Enabling automatic frontend deploys
+
+1. `cp deploy/github-workflows/deploy-frontend.yml .github/workflows/`
+   (it ships as a template: the automation token that pushed these commits has
+   no `workflows` permission, so it cannot create that path itself).
+2. Static Web App → **Manage deployment token** → copy.
+3. Repo → Settings → Secrets → Actions → `AZURE_STATIC_WEB_APPS_API_TOKEN`.
+4. Push to `main`, or run the `Deploy frontend` workflow manually.
+
+Until that secret exists the workflow reports a notice and exits green rather
+than failing.
+
+### Deploying the frontend without GitHub Actions
+
+```bash
+npx @azure/static-web-apps-cli deploy dev-portal \
+  --deployment-token <token> --env production
+```
+
+## Two supported targets
+
+Both are keyless — no Foundry key is deployed.
 
 ---
 
