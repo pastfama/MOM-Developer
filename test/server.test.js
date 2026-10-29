@@ -218,3 +218,17 @@ test("creating a session returns a usable id", async () => {
   const data = await res.json();
   assert.match(data.session.id, /^sess-/);
 });
+
+test("serves the security headers and cache policy SWA used to provide", async () => {
+  const js = await fetch(base + "/js/chat.js");
+  assert.equal(js.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(js.headers.get("x-frame-options"), "SAMEORIGIN");
+  assert.match(js.headers.get("referrer-policy"), /strict-origin/);
+  assert.match(js.headers.get("cache-control"), /immutable/);
+
+  const html = await fetch(base + "/");
+  assert.equal(html.headers.get("cache-control"), "no-cache", "index.html must never be cached");
+
+  const api = await fetch(base + "/api/health");
+  assert.equal(api.headers.get("x-content-type-options"), "nosniff");
+});

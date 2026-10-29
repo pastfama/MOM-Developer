@@ -67,10 +67,14 @@ test("the API base must be same-origin in production", () => {
   assert.match(code, /:\s*"";/, "prod falls through to same origin");
 });
 
-test("the static web app config must not disguise failures as 200 HTML", () => {
-  const raw = fs.readFileSync(path.join(portal, "staticwebapp.config.json"), "utf8");
-  const cfg = JSON.parse(raw);
-  // A global 404 -> index.html rewrite made /api/health answer 200 text/html.
-  assert.equal(cfg.responseOverrides, undefined, "no global 404 rewrite");
-  assert.deepEqual(cfg.navigationFallback.exclude, ["/api/*"]);
+test("nothing depends on a Static Web App any more", () => {
+  // Everything runs from server.js on one origin: no SWA config, no SWA deploy
+  // workflow, no second hostname to keep in sync.
+  const root = path.join(__dirname, "..");
+  assert.equal(fs.existsSync(path.join(portal, "staticwebapp.config.json")), false);
+  assert.equal(fs.existsSync(path.join(root, ".github", "workflows")), false);
+  assert.equal(fs.existsSync(path.join(root, "deploy", "github-workflows")), false);
+  const cfg = read("js/config.js");
+  assert.ok(!/staticwebapps|azurewebsites/.test(cfg.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n")));
 });
+

@@ -11,6 +11,8 @@ const { extractFileBlocks, applyFileBlocks } = require("./lib/apply-engine");
 const { getFoundryToken, describeIdentityConfig } = require("./lib/foundry-auth");
 
 const PORT = process.env.PORT || 3000;
+// Behind Caddy/nginx (TLS termination) bind to loopback: HOST=127.0.0.1
+const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 // The frontend lives in dev-portal/ — that directory is the web root.
 const STATIC_ROOT = path.join(ROOT, "dev-portal");
@@ -34,6 +36,14 @@ const TENANT_ID = process.env.AZURE_TENANT_ID || "185b412d-bddc-454b-9987-406285
 const AUTO_APPLY = process.env.DEV_AGENT_AUTO_APPLY !== "0";
 // The tree the agent is allowed to write into.
 const APPLY_ROOT = path.resolve(process.env.DEV_AGENT_APPLY_ROOT || ROOT);
+
+// Parity with what the Static Web App used to inject. One origin means the
+// node server has to supply these itself.
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Frame-Options": "SAMEORIGIN",
+};
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -59,7 +69,11 @@ function cors() {
 
 function writeJson(res, status, obj) {
   const body = JSON.stringify(obj);
-  res.writeHead(status, { ...cors(), "Content-Length": Buffer.byteLength(body) });
+  res.writeHead(status, {
+    ...cors(),
+    ...SECURITY_HEADERS,
+    "Content-Length": Buffer.byteLength(body),
+  });
   res.end(body);
 }
 
@@ -445,12 +459,21 @@ function resolveStatic(pathname) {
 function serveFile(res, filePath) {
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...SECURITY_HEADERS });
       res.end("Not found");
       return;
     }
-    const ct = MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-    res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-cache" });
+    const ext = path.extname(filePath).toLowerCase();
+    const ct = MIME[ext] || "application/octet-stream";
+    // index.html is the only unversioned asset: never cache it, or a deploy
+    // will not be picked up. CSS/JS are referenced as ?v=N, so they can be
+    // cached hard — bump the query string when you change them.
+    const versioned = ext === ".js" || ext === ".css";
+    res.writeHead(200, {
+      "Content-Type": ct,
+      "Cache-Control": versioned ? "public, max-age=31536000, immutable" : "no-cache",
+      ...SECURITY_HEADERS,
+    });
     res.end(content);
   });
 }
@@ -534,8 +557,10 @@ function createServer() {
 async function start() {
   await store.init();
   const server = createServer();
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     console.log(`\n=== Dev Agent server on http://localhost:${PORT} ===`);
+    console.log(`Listening:       ${HOST}:${PORT}`);
+    console.log(`Serves both UI and API on one origin (no Static Web App, no Function App)`);
     console.log(`Web root:        ${STATIC_ROOT}`);
     console.log(`Sessions saved:  ${store.root}`);
     console.log(`Auto-apply:      ${AUTO_APPLY ? "on" : "off"} (DEV_AGENT_AUTO_APPLY=0 to disable)`);

@@ -1,49 +1,48 @@
-# Deploying to the prod box
+# Deploying to the VM
 
-## What production actually is (checked 2026-10-29)
+One process, one origin: `server.js` serves the frontend (`dev-portal/`) and the
+API (`/api/*`) from the same host, behind Caddy for TLS. No Static Web App, no
+Function App, no second hostname — which also means `config.js` needs no API
+base override and MSAL has a single redirect URI.
 
-`dev.fameshire.com` is an **Azure Static Web App** (`happy-sky-09013861e.3.azurestaticapps.net`),
-not a VM — so the systemd path below only applies if you also run `server.js`
-somewhere. Three facts worth knowing before deploying:
+## Topology
 
-| Finding | Consequence |
-|---|---|
-| The SWA is **not linked to this repo** — no GitHub deployments, environments or Actions runs | nothing deploys on push until a deployment token is added |
-| `momtv-api.azurewebsites.net` (the old prod API base) **has no DNS record** | every `/api/*` call failed; `config.js` now uses the same origin |
-| The SWA rewrote **404 → `index.html` with status 200** | `/api/health` returned `200 text/html`, hiding the failure; that override is removed |
+| Piece | Runs on | Notes |
+|---|---|---|
+| UI + API | `dev-agent.service` (:3000, loopback) | one node process, no build step, no dependencies |
+| TLS | Caddy (:443) | automatic Let's Encrypt, reverse-proxies to :3000 |
+| Sessions | `$PREFIX/shared/.data` | outside the release dir, survives deploys |
+| Model auth | managed identity | keyless; no Foundry key on the box |
 
-`/api/*` on a Static Web App only works if a **Function App is linked** to it
-(SWA proxies `/api/*`). There is no API deployed behind `dev.fameshire.com`
-today, so the frontend will load but chat cannot answer until one exists.
+## Cut over from the Static Web App
 
-### Enabling automatic frontend deploys
+`dev.fameshire.com` currently points at an Azure Static Web App. **Do this in
+order** so the hostname never resolves to nothing:
 
-1. `cp deploy/github-workflows/deploy-frontend.yml .github/workflows/`
-   (it ships as a template: the automation token that pushed these commits has
-   no `workflows` permission, so it cannot create that path itself).
-2. Static Web App → **Manage deployment token** → copy.
-3. Repo → Settings → Secrets → Actions → `AZURE_STATIC_WEB_APPS_API_TOKEN`.
-4. Push to `main`, or run the `Deploy frontend` workflow manually.
+1. Stand the VM up and install (below). Verify locally with curl — no DNS yet.
+2. Verify through Caddy with the real hostname before touching public DNS:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' --resolve dev.fameshire.com:443:<VM-IP> \
+     https://dev.fameshire.com/js/chat.js
+   ```
+3. Switch DNS: replace the `azurestaticapps.net` CNAME with an **A record**
+   `dev.fameshire.com -> <VM public IP>`. Lower the TTL an hour beforehand.
+4. Wait for propagation, confirm `curl -sI https://dev.fameshire.com` now hits
+   your VM, then delete the Static Web App:
+   ```bash
+   az staticwebapp list -o table                       # find the name/rg
+   az staticwebapp delete --name <name> --resource-group <rg> --yes
+   ```
+   Deleting the resource does **not** remove the DNS records — that is step 3.
+5. Optionally remove `momtv-api` references anywhere else, then confirm no
+   Azure resource is still serving this hostname.
 
-Until that secret exists the workflow reports a notice and exits green rather
-than failing.
+> I could not run any of this: there are no Azure credentials or SSH access in
+> the environment that prepared these files. Steps 3 and 4 are yours.
 
-### Deploying the frontend without GitHub Actions
+## 1. Install the app (systemd)
 
-```bash
-npx @azure/static-web-apps-cli deploy dev-portal \
-  --deployment-token <token> --env production
-```
-
-## Two supported targets
-
-Both are keyless — no Foundry key is deployed.
-
----
-
-## 1. VM / bare metal (systemd)
-
-Requires Node 18+ and `curl`. Copy the release tarball or a git checkout onto the box, then:
+Requires Node 18+ and `curl` on the VM.
 
 ```bash
 sudo ./deploy/install.sh
@@ -54,104 +53,86 @@ That command is idempotent and does all of this:
 1. creates a `devagent` system user (if missing)
 2. stages an immutable release: `$PREFIX/releases/<utc-stamp>/`
 3. flips the symlink `$PREFIX/current` to it
-4. installs the unit as `/etc/systemd/system/dev-agent.service`, enables and restarts it
+4. installs `/etc/systemd/system/dev-agent.service`, enables and restarts it
 5. waits up to 10s for `GET /api/health` to answer `{"ok":true}`
 6. **rolls back to the previous release if the health check fails**
 7. prunes all but the last 5 releases
 
 `$PREFIX` defaults to `/opt/dev-agent`.
 
-### Sessions survive deploys
+On a fresh box it creates `/etc/dev-agent.env` (mode `0600`) from
+`dev-agent.env.example` with nothing secret. Set `HOST=127.0.0.1` when Caddy is
+in front, then re-run the installer.
 
-`DATA_DIR` defaults to `$PREFIX/shared/.data` — deliberately **outside** the
-release directory, so switching versions never deletes conversation history.
-
-### First install
-
-On a fresh box the installer creates `/etc/dev-agent.env` (mode `0600`) from
-`dev-agent.env.example` and fills in nothing secret. Review it, then re-run the
-installer so the service picks it up:
+## 2. TLS with Caddy
 
 ```bash
-sudoedit /etc/dev-agent.env     # check PORT, DATA_DIR, FOUNDRY_* values
-sudo ./deploy/install.sh
+sudo apt install caddy
+getent hosts dev.fameshire.com          # must already be this VM before you start
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
 ```
 
-### Verify
+Caddy obtains and renews the certificate automatically; port **80 must be open**
+for the ACME challenge, and **443** for traffic.
+
+## 3. Firewall
 
 ```bash
-curl -s localhost:3000/api/health | jq .
+sudo ufw allow 22/tcp && sudo ufw allow 80,443/tcp && sudo ufw enable
+```
+
+Do **not** expose 3000 — the service binds loopback when `HOST=127.0.0.1`, and
+Node should never be the public face of the box.
+
+## 4. Entra ID
+
+Register `https://dev.fameshire.com` as a **SPA redirect URI** on the
+`fameshire-dev-portal` app registration (Authentication → Single-page
+application → Add URI). Local dev also needs `http://localhost:3000`.
+
+## Verify
+
+```bash
+curl -s localhost:3000/api/health | jq .          # auth mode, scope, data dir
+curl -sI https://dev.fameshire.com/js/chat.js | grep -i content-type   # javascript
 systemctl status dev-agent --no-pager
 journalctl -u dev-agent -n 50 --no-pager
 ```
 
-`/api/health` returns the auth mode, scope, whether a key is present, and the
-sessions directory. `auth.apiKeyPresent` should be **false** in production.
+`auth.apiKeyPresent` must be **false** in production.
 
-### Upgrade
+## Upgrade / rollback / uninstall
 
 ```bash
-git fetch --tags && git checkout v1.1.1
-sudo ./deploy/install.sh
+git fetch --tags && git checkout v1.2.0 && sudo ./deploy/install.sh
 ```
 
-### Roll back
-
 ```bash
-ls -1dt /opt/dev-agent/releases/* | sed -n 2p        # previous release
+ls -1dt /opt/dev-agent/releases/* | sed -n 2p          # previous release
 sudo ln -sfn /opt/dev-agent/releases/<that-one> /opt/dev-agent/current
 sudo systemctl restart dev-agent
 ```
 
-### Uninstall
-
 ```bash
 sudo systemctl disable --now dev-agent
 sudo rm /etc/systemd/system/dev-agent.service /etc/dev-agent.env
-sudo rm -rf /opt/dev-agent          # deletes history too
+sudo rm -rf /opt/dev-agent                             # deletes history too
 sudo systemctl daemon-reload
 ```
-
----
-
-## 2. Azure App Service / Functions
-
-No systemd and **no IMDS** — the app uses `IDENTITY_ENDPOINT` automatically, so
-keep `FOUNDRY_AUTH=auto` and leave `FOUNDRY_API_KEY` unset.
-
-```bash
-# app settings (no secrets)
-az webapp config appsettings set -g <rg> -n momtv-api --settings \
-  FOUNDRY_AUTH=auto PORT=8080 DATA_DIR=/home/data \
-  FOUNDRY_TOKEN_SCOPE=https://ai.azure.com/.default \
-  AGENT_ID=momtv-developer
-
-# keyless access to the model
-az webapp identity assign -g <rg> -n momtv-api          # note principalId
-az role assignment create --assignee <principalId> \
-  --role "Cognitive Services User" \
-  --scope /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry>
-
-# ship it
-az webapp deploy -g <rg> -n momtv-api --src-path app.zip --type zip
-```
-
-On App Service the filesystem under `DATA_DIR` is persistent; point it at
-`/home/...`. Unknown paths are fine — the server serves `dev-portal/` and returns
-JSON for unknown API routes.
-
----
 
 ## Troubleshooting
 
 | Symptom | Cause |
 |---|---|
-| `503 no_credentials` | No identity and no key. Assign the role, or pass `FOUNDRY_API_KEY` locally with `FOUNDRY_AUTH=key`. |
+| `503 no_credentials` | No identity and no key. Attach a managed identity and grant it `Cognitive Services User`, or set `FOUNDRY_API_KEY` with `FOUNDRY_AUTH=key` locally. |
 | `401` from Foundry with a valid identity | Wrong scope. Classic Azure OpenAI needs `FOUNDRY_TOKEN_SCOPE=https://cognitiveservices.azure.com/.default`. |
-| `403` from Foundry | Role missing or still propagating — `Cognitive Services User`, or `Azure AI Developer` for some setups. |
-| Health OK but page is blank | Hard-refresh; assets are cache-busted with `?v=`. Check `/js/chat.js` returns `application/javascript`, not `text/html`. |
-| Agent writes nothing | `DEV_AGENT_AUTO_APPLY=0`, or it emitted no ```file:``` blocks. Check journal for `[apply]` lines. |
+| `403` from Foundry | Role missing or still propagating — `Cognitive Services User`, or `Azure AI Developer`. |
+| Caddy will not get a cert | DNS not pointing here yet, or port 80 blocked. |
+| Site loads, chat fails | `/api/health` returning HTML means something other than this server answers the hostname — check DNS. |
+| Agent writes nothing | `DEV_AGENT_AUTO_APPLY=0`, or no ```file:``` blocks emitted. Look for `[apply]` in the journal. |
 
-Disk: sessions are capped at 400 turns each; prune old ones with
-`rm /opt/dev-agent/shared/.data/sessions/users/*/sessions/<id>.json` or
-`DELETE /api/sessions/:id`.
+Sessions are capped at 400 turns each; delete old ones with
+`DELETE /api/sessions/:id` or by removing the file under
+`$PREFIX/shared/.data/sessions/users/*/sessions/`.

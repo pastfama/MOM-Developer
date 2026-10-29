@@ -1,0 +1,20 @@
+# TLS terminator for the VM. Caddy fetches and renews the Let's Encrypt cert
+# automatically — no certbot, no cron job, no manual renewal.
+#
+#   sudo apt install caddy
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Requires: DNS A record for dev.fameshire.com -> this VM's public IP, and
+# inbound 80 + 443 open (80 is needed for the ACME challenge).
+
+dev.fameshire.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

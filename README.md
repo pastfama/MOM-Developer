@@ -17,16 +17,16 @@ A landing page with Microsoft Entra ID (Azure AD) single sign-on, plus a chat in
 |-------|-----------|
 | Frontend | Vanilla HTML/CSS/JS (no build step) |
 | Auth | Microsoft Entra ID via MSAL Browser (`@azure/msal-browser`) |
-| API | Node.js HTTP server (local) / Azure Functions (production) |
+| API | The same Node.js HTTP server as the frontend — one process, one origin |
 | LLM | Foundry agent `momtv-developer` (gpt-4.1-mini) via Responses API |
-| Memory | In-memory sessions (local dev) / Cosmos DB (production) |
-| Hosting | Azure Static Web Apps + Azure Functions |
+| Memory | Disk-backed per-user sessions (`.data/`), survives restarts and deploys |
+| Hosting | Single Linux VM — node behind Caddy (automatic HTTPS) |
 
 ## Project structure
 
 ```
 MOM-Developer/
-├── dev-portal/          # Frontend (served by Azure Static Web Apps)
+├── dev-portal/          # Frontend (served by server.js)
 │   ├── index.html       # Landing page + chat UI + saved-session sidebar
 │   ├── css/style.css    # Styles
 │   ├── js/config.js     # MSAL + API config
@@ -141,25 +141,17 @@ npm test                  # run the test suite
 
 ## Production deployment
 
-See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the one-command VM install
-(`sudo ./deploy/install.sh`, health-checked with automatic rollback) and the
-App Service settings. Releases are immutable and `DATA_DIR` lives outside them,
-so upgrades never delete conversation history.
+Everything runs on a **single VM as one process**: `server.js` serves `dev-portal/`
+and `/api/*` on the same origin, with Caddy terminating TLS. There is no Static
+Web App and no Function App — one hostname, one process, no CORS.
 
-### Frontend (Azure Static Web Apps)
+```bash
+sudo ./deploy/install.sh      # immutable release + health check + auto-rollback
+```
 
-Create a Static Web App pointing at this repo, with:
-- App location: `/dev-portal`
-- Output location: `.`
-- Custom domain: `dev.fameshire.com` (CNAME → SWA default hostname)
-
-### API (Azure Functions)
-
-Deploy `server.js` (or the Function App equivalent) to an Azure Function App with:
-- `FUNCTIONS_WORKER_RUNTIME=node`
-- `WEBSITE_NODE_DEFAULT_VERSION=18`
-- All environment variables above set as app settings
-- CORS allowed origins: `https://dev.fameshire.com`
+Full runbook, including the DNS cutover order and how to delete the old Static
+Web App: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**. Releases are immutable and
+`DATA_DIR` lives outside them, so upgrades never delete conversation history.
 
 ## Agent authentication (keyless by default)
 
