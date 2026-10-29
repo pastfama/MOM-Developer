@@ -185,6 +185,8 @@ test("the next turn replays earlier messages (memory survives)", async () => {
   assert.match(last.input[0].content, /Be warm, respectful, direct, and constructive/);
   assert.match(last.input[0].content, /offer the closest practical path toward the same goal/);
   assert.match(last.input[0].content, /Do not promise "yes" when it would be misleading/);
+  assert.match(last.input[0].content, /Aim for 2–4 sentences or up to 3 brief bullets/);
+  assert.match(last.input[0].content, /summarize the relevant highlights instead of exhaustively naming every resource/);
 });
 
 test("history is persisted and listed for the signed-in user", async () => {
