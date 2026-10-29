@@ -1,45 +1,175 @@
 // ── Dev Agent chat ──
+// Every turn is persisted server-side per user, so the thread survives page
+// reloads, browser restarts and server restarts.
 let sessionId = null;
 let isTyping = false;
+let activeUserKey = "anon";
+let wired = false;
 
-function initChat() {
-  // Create or resume a session tied to the user
-  const stored = sessionStorage.getItem("dev-agent-session-id");
-  if (stored) {
-    sessionId = stored;
-    loadHistory();
-  } else {
-    sessionId = "sess-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-    sessionStorage.setItem("dev-agent-session-id", sessionId);
-  }
-  document.getElementById("sendBtn").addEventListener("click", sendMessage);
-  document.getElementById("promptInput").addEventListener("keypress", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+
+const activeKey = () => "dev-agent:active:" + activeUserKey;
+
+function userKeyFor(account) {
+  if (!account) return "anon";
+  return account.homeAccountId || account.username || "anon";
+}
+
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = new Date().toDateString() === d.toDateString();
+  return today
+    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+// Model output is untrusted: escape first, then add a little formatting.
+function renderContent(text) {
+  const src = String(text == null ? "" : text);
+  const parts = src.split(/```/);
+  let out = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      // fenced block: drop a leading language hint on its own first line
+      const body = parts[i].replace(/^[A-Za-z0-9_+.\-]*(?::[^\n]*)?\n/, "");
+      out += `<pre class="code"><code>${esc(body.replace(/\s+$/, ""))}</code></pre>`;
+    } else {
+      out += esc(parts[i])
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
     }
+  }
+  return out;
+}
+
+async function api(path, options = {}) {
+  const token = await window.getAccessToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers.Authorization = "Bearer " + token;
+  if (options.body) headers["Content-Type"] = "application/json";
+  const res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    throw new Error(
+      "Expected JSON from " + path + " but got " + (ct || "no content-type") +
+        ". The API route is probably missing or the server is serving a static file instead."
+    );
+  }
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = (data.error && data.error.message) || "HTTP " + res.status;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function renderSessionList(sessions) {
+  const box = document.getElementById("sessionList");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!sessions.length) {
+    box.innerHTML = '<div class="session-empty">No saved sessions yet.</div>';
+    return;
+  }
+  sessions.forEach((s) => {
+    const btn = document.createElement("button");
+    btn.className = "session-item" + (s.id === sessionId ? " active" : "");
+    btn.dataset.id = s.id;
+    btn.innerHTML =
+      '<span class="st">' + esc(s.title || "Untitled") + "</span>" +
+      '<span class="sm">' + esc(fmtTime(s.updatedAt)) + " \u00b7 " + (s.turns || 0) + " msgs</span>";
+    btn.addEventListener("click", () => selectSession(s.id));
+    box.appendChild(btn);
   });
-  addSystemMessage("Dev Agent ready. I know your identity, your Azure estate, and your GitHub repos. What would you like to do?");
+}
+
+async function refreshSessions() {
+  try {
+    const data = await api("/api/sessions");
+    const sessions = data.sessions || [];
+    renderSessionList(sessions);
+    return sessions;
+  } catch (e) {
+    console.error("Session list failed:", e.message);
+    return [];
+  }
+}
+
+async function selectSession(id) {
+  sessionId = id;
+  localStorage.setItem(activeKey(), id);
+  await loadHistory();
+  await refreshSessions();
+  updateSessionInfo();
+}
+
+async function newSession() {
+  try {
+    const data = await api("/api/sessions", { method: "POST", body: "{}" });
+    sessionId = data.session.id;
+    localStorage.setItem(activeKey(), sessionId);
+    document.getElementById("messages").innerHTML = "";
+    addSystemMessage("New session started. Everything here is saved automatically.");
+    await refreshSessions();
+    updateSessionInfo();
+  } catch (e) {
+    addSystemMessage("Could not start a session: " + esc(e.message));
+  }
 }
 
 async function loadHistory() {
+  if (!sessionId) return;
+  const messages = document.getElementById("messages");
   try {
-    const token = await window.getAccessToken();
-    const res = await fetch(`${API_BASE}/api/dev-agent/history?sessionId=${encodeURIComponent(sessionId)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const messages = document.getElementById("messages");
-      messages.innerHTML = "";
-      (data.messages || []).forEach((m) => {
-        addMessage(m.role, m.content, false);
-      });
-      scrollToBottom();
+    const data = await api("/api/dev-agent/history?sessionId=" + encodeURIComponent(sessionId));
+    messages.innerHTML = "";
+    const turns = data.messages || [];
+    turns.forEach((m) => addMessage(m.role, m.content, false));
+    if (!turns.length) {
+      addSystemMessage("Dev Agent ready. This conversation is saved as you go \u2014 close the tab and it will still be here.");
     }
+    scrollToBottom();
   } catch (e) {
-    console.error("History load failed:", e);
+    messages.innerHTML = "";
+    addSystemMessage("Could not load history: " + esc(e.message));
   }
+}
+
+function initChat(account) {
+  activeUserKey = userKeyFor(account);
+  if (!wired) {
+    wired = true;
+    document.getElementById("sendBtn").addEventListener("click", sendMessage);
+    document.getElementById("newSessionBtn").addEventListener("click", newSession);
+    document.getElementById("promptInput").addEventListener("keypress", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
+  // Resume the last thread this user had open, else the most recent one.
+  refreshSessions().then((sessions) => {
+    const stored = localStorage.getItem(activeKey());
+    const pick = sessions.find((s) => s.id === stored) || sessions[0];
+    if (pick) {
+      sessionId = pick.id;
+      localStorage.setItem(activeKey(), sessionId);
+      loadHistory().then(updateSessionInfo);
+    } else {
+      newSession();
+    }
+  });
+}
+
+function updateSessionInfo() {
+  const el = document.getElementById("sessionInfo");
+  if (!el) return;
+  el.textContent = sessionId ? "Saved \u00b7 " + sessionId.slice(0, 16) : "No session";
 }
 
 async function sendMessage() {
@@ -51,40 +181,25 @@ async function sendMessage() {
   document.getElementById("sendBtn").disabled = true;
 
   addMessage("user", text, true);
-  addSystemMessage("&#8230;", true);
+  const typing = addSystemMessage("&#8230;", true);
   isTyping = true;
 
   try {
-    const token = await window.getAccessToken();
-    const res = await fetch(`${API_BASE}/api/dev-agent`, {
+    const data = await api("/api/dev-agent", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        message: text,
-        sessionId: sessionId,
-      }),
+      body: JSON.stringify({ message: text, sessionId }),
     });
-
-    // Remove typing indicator
-    const typing = document.querySelector(".msg-typing");
-    if (typing) typing.remove();
-
-    if (!res.ok) {
-      const err = await res.text();
-      addSystemMessage("Error: " + err, true);
-      return;
+    typing.remove();
+    if (data.sessionId) {
+      sessionId = data.sessionId;
+      localStorage.setItem(activeKey(), sessionId);
     }
-
-    const data = await res.json();
-    addMessage("assistant", data.response || data.text || "(no response)", true);
-    sessionStorage.setItem("dev-agent-session-id", sessionId);
+    addMessage("assistant", data.response || "(no response)", true, data.applied, data.skipped);
+    refreshSessions();
+    updateSessionInfo();
   } catch (e) {
-    const typing = document.querySelector(".msg-typing");
-    if (typing) typing.remove();
-    addSystemMessage("Error: " + e.message, true);
+    typing.remove();
+    addSystemMessage("Error: " + esc(e.message));
   } finally {
     isTyping = false;
     input.disabled = false;
@@ -94,11 +209,29 @@ async function sendMessage() {
   }
 }
 
-function addMessage(role, content, scroll = true) {
+function renderApplied(applied, skipped) {
+  const ok = (applied || [])
+    .map((a) => '<span class="chip">' + esc(a.path) + "<em>" + esc(a.action) + "</em></span>")
+    .join("");
+  const bad = (skipped || [])
+    .map((s) => '<span class="chip bad">' + esc(s.path) + "<em>" + esc(s.reason) + "</em></span>")
+    .join("");
+  if (!ok && !bad) return "";
+  return (
+    '<div class="applied"><div class="applied-title">Written to the repo</div>' +
+    ok +
+    bad +
+    "</div>"
+  );
+}
+
+function addMessage(role, content, scroll = true, applied, skipped) {
   const messages = document.getElementById("messages");
+  const safeRole = role === "user" || role === "assistant" ? role : "system";
   const div = document.createElement("div");
-  div.className = "msg " + role;
-  div.innerHTML = `<div class="msg-bubble">${content}</div>`;
+  div.className = "msg " + safeRole;
+  div.innerHTML =
+    '<div class="msg-bubble">' + renderContent(content) + renderApplied(applied, skipped) + "</div>";
   messages.appendChild(div);
   if (scroll) scrollToBottom();
 }
@@ -107,7 +240,7 @@ function addSystemMessage(content, scroll = true) {
   const messages = document.getElementById("messages");
   const div = document.createElement("div");
   div.className = "msg system msg-typing";
-  div.innerHTML = `<div class="msg-bubble">${content}</div>`;
+  div.innerHTML = '<div class="msg-bubble">' + content + "</div>";
   messages.appendChild(div);
   if (scroll) scrollToBottom();
   return div;

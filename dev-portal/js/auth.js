@@ -11,13 +11,16 @@ function updateUI(account) {
   const sessionInfo = document.getElementById("sessionInfo");
 
   if (account) {
+    // Without this, acquireTokenSilent() has no account after a page reload
+    // and every API call goes out without a bearer token.
+    msalInstance.setActiveAccount(account);
     userBox.style.display = "flex";
-    userName.textContent = account.name || account.username;
+    userName.textContent = account.name || account.username || "Signed in";
     landing.style.display = "none";
-    chat.style.display = "block";
-    sessionInfo.textContent = "Session: " + (account.homeAccountId || "unknown").substring(0, 12);
+    chat.style.display = "flex";
+    sessionInfo.textContent = "Signed in";
     document.getElementById("logoutBtn").onclick = logout;
-    initChat();
+    initChat(account);
   } else {
     userBox.style.display = "none";
     landing.style.display = "block";
@@ -29,11 +32,9 @@ function updateUI(account) {
 async function login() {
   try {
     const response = await msalInstance.loginPopup(loginRequest);
-    const account = msalInstance.getActiveAccount() || response.account;
-    updateUI(account);
+    updateUI(msalInstance.getActiveAccount() || response.account);
   } catch (err) {
-    console.error("Login failed:", err);
-    // Fallback to redirect if popup is blocked
+    console.error("Login popup failed, falling back to redirect:", err);
     msalInstance.loginRedirect(loginRequest);
   }
 }
@@ -41,56 +42,49 @@ async function login() {
 async function logout() {
   try {
     await msalInstance.logoutPopup();
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Logout popup failed:", e && e.message);
+  }
   updateUI(null);
-  // Clear chat
   const messages = document.getElementById("messages");
   if (messages) messages.innerHTML = "";
 }
 
-// Handle redirect callback
-msalInstance.handleRedirectPromise().then(handleRedirectResponse).catch((err) => {
-  console.error("Redirect response error:", err);
-});
-
-function handleRedirectResponse(tokenResponse) {
-  if (tokenResponse !== null && tokenResponse.account !== null) {
-    updateUI(tokenResponse.account);
-  } else {
-    updateUI(null);
-  }
-}
+// Handle the redirect callback before anything else touches the session.
+msalInstance
+  .handleRedirectPromise()
+  .then((tokenResponse) => {
+    if (tokenResponse && tokenResponse.account) {
+      msalInstance.setActiveAccount(tokenResponse.account);
+      updateUI(tokenResponse.account);
+      return;
+    }
+    const accounts = msalInstance.getAllAccounts();
+    updateUI(accounts.length ? accounts[0] : null);
+  })
+  .catch((err) => {
+    console.error("Redirect response error:", err);
+    const accounts = msalInstance.getAllAccounts();
+    updateUI(accounts.length ? accounts[0] : null);
+  });
 
 document.getElementById("loginBtn").addEventListener("click", login);
 
-// Check for existing session on load
-window.addEventListener("DOMContentLoaded", () => {
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length > 0) {
-    updateUI(accounts[0]);
-  }
-});
-
-// Expose token getter for chat module
+// Expose token getter for the chat module.
 window.getAccessToken = async () => {
-  const account = msalInstance.getActiveAccount();
+  const account =
+    msalInstance.getActiveAccount() || (msalInstance.getAllAccounts() || [])[0] || null;
   if (!account) return null;
+  msalInstance.setActiveAccount(account);
   try {
-    const result = await msalInstance.acquireTokenSilent({
-      ...loginRequest,
-      account: account,
-    });
+    const result = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
     return result.accessToken;
   } catch (e) {
-    // Silent failed, try popup
     try {
-      const result = await msalInstance.acquireTokenPopup({
-        ...loginRequest,
-        account: account,
-      });
+      const result = await msalInstance.acquireTokenPopup({ ...loginRequest, account });
       return result.accessToken;
     } catch (e2) {
-      console.error("Token acquisition failed:", e2);
+      console.error("Token acquisition failed:", e2 && e2.message);
       return null;
     }
   }
