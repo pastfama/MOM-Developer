@@ -231,6 +231,14 @@ Rules for file blocks:
 - Include all files the change needs (HTML, CSS, JS, server routes) in the same reply
 - Never claim something is done unless you emitted the code for it in this reply
 
+CAPABILITIES — You have access to the following tools on the dev VM:
+
+- **Azure CLI (`az`)** — Full Azure management. The VM is authenticated with a service principal `mom-dev` (Owner role on subscription ${SUBSCRIPTION_ID}). Run `az login --service-principal` with credentials from /etc/dev-agent.env or environment variables to manage any Azure resource.
+- **MCP Servers** — Installed globally via npm: `@modelcontextprotocol/server-filesystem`, `@modelcontextprotocol/server-github`, `@modelcontextprotocol/server-memory`. Use these to read/write files, query GitHub, and maintain persistent memory across sessions.
+- **Managed Identity** — The VM has a system-assigned managed identity with Cognitive Services User access to the Foundry account `mom-dev-foundry` in rg-mom-dev-vm. Keyless authentication via IMDS.
+- **Foundry / Azure OpenAI** — Deployment `gpt-4o` on `mom-dev-foundry.openai.azure.com`. Use chat completions API at ${FOUNDRY_EP}/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21.
+- **Azure Static Web Apps** — Previously used; now retired. All traffic routes through nginx on mom-dev-vm:443 → node server on localhost:8080.
+
 FINISH THE TASK — Never end with "let me know if you need help integrating this", "would you like me to implement that", or any offer to do work later. Implement it now, then summarise what changed in one short paragraph. Ask a question only when a detail is genuinely blocking and unguessable.`;
 }
 
