@@ -20,7 +20,7 @@ const DATA_ROOT = process.env.DATA_DIR || path.join(ROOT, ".data");
 
 const FOUNDRY_EP =
   process.env.FOUNDRY_PROJECT_ENDPOINT || "https://mom-dev-foundry.openai.azure.com";
-const AGENT_ID = process.env.AGENT_ID || "gpt-6-luna";
+const AGENT_ID = process.env.AGENT_ID || "gpt-4o";
 const AGENT_API_VER = process.env.AGENT_API_VERSION || "2024-10-21";
 const FOUNDRY_KEY = process.env.FOUNDRY_API_KEY || "";
 // Managed identity is the default; ENTRA ID needs no secret at all.
@@ -233,10 +233,10 @@ Rules for file blocks:
 
 CAPABILITIES — You have access to the following tools on the dev VM:
 
-- **Azure CLI** — Full Azure management: deploy and change resources (not read-only). The VM is authenticated with service principal mom-dev (Owner role on subscription ${SUBSCRIPTION_ID}). You can create, update, and delete Azure resources and deployments — run az login --service-principal with credentials from /etc/dev-agent.env or environment variables, then use az deployment group create / az deployment sub create / az group deployment create / az resource to manage any Azure resource.
+- **Azure CLI** — Full Azure management. The VM is authenticated with a service principal mom-dev (Owner role on subscription ${SUBSCRIPTION_ID}). Run az login --service-principal with credentials from /etc/dev-agent.env or environment variables to manage any Azure resource.
 - **MCP Servers** — Installed globally via npm: @modelcontextprotocol/server-filesystem, @modelcontextprotocol/server-github, @modelcontextprotocol/server-memory. Use these to read/write files, query GitHub, and maintain persistent memory across sessions.
 - **Managed Identity** — The VM has a system-assigned managed identity with Cognitive Services User access to the Foundry account mom-dev-foundry in rg-mom-dev-vm. Keyless authentication via IMDS.
-- **Foundry / Azure OpenAI** — Deployment ${AGENT_ID} on ${FOUNDRY_EP}. Use chat completions API at ${FOUNDRY_EP}/openai/deployments/${AGENT_ID}/chat/completions?api-version=${AGENT_API_VER}.
+- **Foundry / Azure OpenAI** — Deployment gpt-4o on mom-dev-foundry.openai.azure.com. Use chat completions API at ${FOUNDRY_EP}/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21.
 - **Azure Static Web Apps** — Previously used; now retired. All traffic routes through nginx on mom-dev-vm:443 → node server on localhost:8080.
 
 FINISH THE TASK — Never end with "let me know if you need help integrating this", "would you like me to implement that", or any offer to do work later. Implement it now, then summarise what changed in one short paragraph. Ask a question only when a detail is genuinely blocking and unguessable.`;
@@ -325,10 +325,7 @@ async function handleAgentTurn(req, res) {
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth.headers },
-      // gpt-6-luna (and other GPT-6 models) reject max_tokens — 400
-      // "Unsupported parameter". max_completion_tokens works for the whole
-      // GPT-4o+ generation, so always send that one.
-      body: JSON.stringify({ messages, max_completion_tokens: 1000 }),
+      body: JSON.stringify({ messages, max_tokens: 1000 }),
     });
 
   let responseText;

@@ -5,7 +5,6 @@ let sessionId = null;
 let isTyping = false;
 let activeUserKey = "anon";
 let wired = false;
-let enthusiasmInterval = null;
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -25,59 +24,6 @@ function fmtTime(iso) {
   return today
     ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-// ── Enthusiasm: never idle! ──
-const ENTHUSIASM_MESSAGES = [
-  "Cooking up something amazing! 🔥",
-  "Crunching the data... ⚡",
-  "Working my magic! ✨",
-  "Almost there, hang tight! 🚀",
-  "Thinking hard! 🧠",
-  "Loading awesomeness... 💥",
-  "Getting everything ready for you! 🌟",
-  "Brewing brilliance! ☕",
-  "Stay hyped, I'm on it! 💪",
-  "Fetching the good stuff! 📦",
-];
-const ENTHUSIASM_STATUSES = [
-  "HYPED & READY 🔥",
-  "ENERGY LEVEL: MAXIMUM ⚡",
-  "READY TO ROCK! 🎸",
-  "FULLY CHARGED 🔋",
-  "POWERED UP 💥",
-  "ALWAYS ON 💯",
-];
-
-function setEnthusiasm(statusText) {
-  const el = document.getElementById("statusText");
-  if (el) el.textContent = statusText;
-}
-
-function setEnthusiasmBadge(text) {
-  const el = document.getElementById("enthusiasmBadge");
-  if (el) el.textContent = text;
-}
-
-function startEnthusiasmLoop() {
-  if (enthusiasmInterval) return;
-  let i = 0;
-  enthusiasmInterval = setInterval(() => {
-    const statuses = ENTHUSIASM_STATUSES;
-    setEnthusiasm(statuses[i % statuses.length]);
-    i++;
-  }, 3000);
-}
-
-function stopEnthusiasmLoop() {
-  if (enthusiasmInterval) {
-    clearInterval(enthusiasmInterval);
-    enthusiasmInterval = null;
-  }
-}
-
-function getRandomEnthusiasmMessage() {
-  return ENTHUSIASM_MESSAGES[Math.floor(Math.random() * ENTHUSIASM_MESSAGES.length)];
 }
 
 // Model output is untrusted: escape first, then add a little formatting.
@@ -218,8 +164,6 @@ function initChat(account) {
       newSession();
     }
   });
-  // Never idle — keep the enthusiasm pumping!
-  startEnthusiasmLoop();
 }
 
 function updateSessionInfo() {
@@ -237,9 +181,7 @@ async function sendMessage() {
   document.getElementById("sendBtn").disabled = true;
 
   addMessage("user", text, true);
-  setEnthusiasm("WORKING HARD FOR YOU! 💪");
-  setEnthusiasmBadge("ENERGY: OVERFLOWING 💥");
-  const typing = addSystemMessage(getRandomEnthusiasmMessage(), true);
+  const typing = addSystemMessage("&#8230;", true);
   isTyping = true;
 
   try {
@@ -253,14 +195,11 @@ async function sendMessage() {
       localStorage.setItem(activeKey(), sessionId);
     }
     addMessage("assistant", data.response || "(no response)", true, data.applied, data.skipped);
-    setEnthusiasm("DONE & DUSTED! ✨");
-    setEnthusiasmBadge("ENERGY: MAXIMUM 💥");
     refreshSessions();
     updateSessionInfo();
   } catch (e) {
     typing.remove();
     addSystemMessage("Error: " + esc(e.message));
-    setEnthusiasm("BACK ON TRACK! 🔥");
   } finally {
     isTyping = false;
     input.disabled = false;
