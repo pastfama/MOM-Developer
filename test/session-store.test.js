@@ -106,3 +106,36 @@ test("session id format is enforced", () => {
   assert.ok(SESSION_ID_RE.test("sess-abc123"));
   assert.ok(!SESSION_ID_RE.test("../x"));
 });
+
+test("long-term memories persist, deduplicate, and stay isolated per user", async () => {
+  const { store, root } = await newStore();
+  const saved = await store.remember("entra:alice", "  I   prefer concise answers.  ");
+  await store.remember("entra:alice", "i prefer concise answers.");
+
+  const restarted = new SessionStore({ root });
+  await restarted.init();
+  assert.deepEqual(await restarted.listMemories("entra:alice"), [saved]);
+  assert.deepEqual(await restarted.listMemories("entra:bob"), []);
+  await fsp.rm(root, { recursive: true, force: true });
+});
+
+test("long-term memories can be forgotten individually or cleared", async () => {
+  const { store, root } = await newStore();
+  const first = await store.remember("entra:user-memory", "Uses TypeScript");
+  const second = await store.remember("entra:user-memory", "Prefers dark mode");
+
+  assert.equal(await store.forgetMemoryText("entra:user-memory", "uses typescript"), true);
+  assert.deepEqual(await store.listMemories("entra:user-memory"), [second]);
+  assert.equal(await store.forgetMemory("entra:user-memory", first.id), false);
+  assert.equal(await store.clearMemories("entra:user-memory"), 1);
+  assert.deepEqual(await store.listMemories("entra:user-memory"), []);
+  await fsp.rm(root, { recursive: true, force: true });
+});
+
+test("long-term memory validates content and IDs", async () => {
+  const { store, root } = await newStore();
+  await assert.rejects(store.remember("entra:user-memory", "  "), /required/);
+  await assert.rejects(store.remember("entra:user-memory", "x".repeat(501)), /500 characters/);
+  assert.equal(await store.forgetMemory("entra:user-memory", "../../memory.json"), false);
+  await fsp.rm(root, { recursive: true, force: true });
+});
