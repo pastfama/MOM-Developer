@@ -63,7 +63,7 @@
             <div class="chat-input-wrap">
               <div class="attachments" id="attachments"></div>
               <div class="composer-row">
-                <button id="attachBtn" type="button" class="attach-btn" title="Attach files">📎</button>
+                <button id="attachBtn" type="button" class="attach-btn" title="Attach files" onclick="document.getElementById('fileInput').click()">📎</button>
                 <input type="file" id="fileInput" multiple hidden />
                 <input type="text" id="promptInput" placeholder="Ask the Dev Agent anything about your Azure, GitHub, or code&#8230;" autocomplete="off" />
                 <button id="sendBtn" onclick="sendMessage()">Send</button>

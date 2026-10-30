@@ -252,10 +252,11 @@ async function apiRaw(path, options = {}) {
 }
 
 async function sendMessage() {
+  console.log("[sendMessage] called, text=" + JSON.stringify(text), "attachments=" + attachments.length)
   const input = document.getElementById("promptInput");
   const sendBtn = document.getElementById("sendBtn");
   const text = input.value.trim();
-  if (!text || isTyping) return;
+  if (!text && attachments.length === 0) return;
   input.value = "";
   if (input) input.disabled = true;
   if (sendBtn) sendBtn.disabled = true;
