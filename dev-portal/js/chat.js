@@ -143,17 +143,47 @@ async function loadHistory() {
 
 function initChat(account) {
   activeUserKey = userKeyFor(account);
-  if (!wired) {
-    wired = true;
-    document.getElementById("sendBtn").addEventListener("click", sendMessage);
-    document.getElementById("newSessionBtn").addEventListener("click", newSession);
-    document.getElementById("promptInput").addEventListener("keypress", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
+  const sendBtn = document.getElementById("sendBtn");
+  const newSessionBtn = document.getElementById("newSessionBtn");
+  const promptInput = document.getElementById("promptInput");
+  const attachBtn = document.getElementById("attachBtn");
+  const fileInput = document.getElementById("fileInput");
+
+  if (sendBtn) {
+    sendBtn.removeEventListener("click", sendMessage);
+    sendBtn.addEventListener("click", sendMessage);
   }
+  if (newSessionBtn) {
+    newSessionBtn.removeEventListener("click", newSession);
+    newSessionBtn.addEventListener("click", newSession);
+  }
+  if (promptInput) {
+    promptInput.removeEventListener("keypress", handleKeypress);
+    promptInput.addEventListener("keypress", handleKeypress);
+  }
+  if (attachBtn) {
+    attachBtn.removeEventListener("click", handleAttachClick);
+    attachBtn.addEventListener("click", handleAttachClick);
+  }
+  if (fileInput) {
+    fileInput.removeEventListener("change", handleFileChange);
+    fileInput.addEventListener("change", handleFileChange);
+  }
+
+  function handleKeypress(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+  function handleAttachClick() {
+    if (fileInput) fileInput.click();
+  }
+  function handleFileChange(e) {
+    for (const f of e.target.files) addAttachment(f);
+    e.target.value = "";
+  }
+
   // Resume the last thread this user had open, else the most recent one.
   refreshSessions().then((sessions) => {
     const stored = localStorage.getItem(activeKey());
@@ -164,14 +194,6 @@ function initChat(account) {
       loadHistory().then(updateSessionInfo);
     } else {
       newSession();
-  document.getElementById("attachBtn").addEventListener("click", () => {
-    document.getElementById("fileInput").click();
-  });
-  document.getElementById("fileInput").addEventListener("change", (e) => {
-    for (const f of e.target.files) addAttachment(f);
-    e.target.value = "";
-  });
-
     }
   });
 }
