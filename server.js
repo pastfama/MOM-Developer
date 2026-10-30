@@ -340,7 +340,7 @@ async function handleAgentTurn(req, res) {
 
 
   // Load the persisted thread — this is what makes memory survive restarts.
-  const session = await store.ensure(userKey, parsed.sessionId);
+  const session = await store.ensure(userKey, sessionId);
 
   const [azureCtx, githubCtx] = await Promise.all([
     cached("azure", CONTEXT_TTL, listAzureResources),
