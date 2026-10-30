@@ -10,6 +10,7 @@ const { SessionStore } = require("./lib/session-store");
 const { JobStore } = require("./lib/job-store");
 const { extractFileBlocks, applyFileBlocks } = require("./lib/apply-engine");
 const { getFoundryToken, describeIdentityConfig } = require("./lib/foundry-auth");
+const fivemRouter = require("./lib/fivem-router");
 
 const PORT = process.env.PORT || 3000;
 // Behind Caddy/nginx (TLS termination) bind to loopback: HOST=127.0.0.1
@@ -217,6 +218,12 @@ ${azureCtx}
 
 GITHUB REPOSITORIES (user: pastfama):
 ${githubCtx}
+
+FIVEM SERVER â€” You are also developing for a FiveM GTA V multiplayer server named "My FiveM Server".
+- Use standard FiveM structure: each resource gets its own folder with fxmanifest.lua, client.lua, server.lua
+- Use QBcore framework patterns (exports["qb-core"]:GetCoreObject(), QBCore.Functions, QBCore.Commands.Add)
+- All Lua files go into fivem-resources/<resource-name>/ and are auto-deployed to the FiveM server
+- Include fx_version 'cerulean' and game 'gta5' in fxmanifest.lua
 
 THIS REPOSITORY — MOM-Developer is a zero-build project: a vanilla HTML/CSS/JS frontend in dev-portal/ served by a dependency-free Node http server (server.js). There is no React and no Express. Never propose a React component or an npm install unless the user explicitly asks for that stack.
 
@@ -430,6 +437,9 @@ async function handleAgentTurn(req, res) {
     }
   }
 
+    // FiveM auto-deploy
+  const fivemDeployResult = await fivemRouter.autoDeploy(apply.applied, "agent turn");
+
   writeJson(res, 200, {
     response: responseText,
     sessionId: saved.id,
@@ -439,6 +449,7 @@ async function handleAgentTurn(req, res) {
     applied: apply.applied,
     skipped: apply.skipped,
     autoApply: apply.enabled,
+    fivem: fivemDeployResult,
   });
 }
 
@@ -545,7 +556,12 @@ async function handleJobRun(req, res, jobId) {
     if (result.skipped && result.skipped.length)
       out += "\n\nSkipped: " + result.skipped.map((s) => s.path).join(", ");
     await jobStore.recordRun(userKey, jobId, out, null);
-    return writeJson(res, 200, { result: out });
+    // FiveM auto-deploy for jobs
+    const jobFivemResult = await fivemRouter.autoDeploy(result.applied || [], "scheduled job: " + job.title);
+    if (jobFivemResult?.changed) {
+      out += "\\n\\n[FiveM] Deployed to " + FIVEM_SERVER_NAME;
+    }
+    return writeJson(res, 200, { result: out, fivem: jobFivemResult });
   } catch (e) {
     await jobStore.recordRun(userKey, jobId, null, e.message);
     return writeJson(res, 500, { error: { message: e.message } });
@@ -686,6 +702,9 @@ function createServer() {
         return writeJson(res, 405, { error: { message: "Method not allowed" } });
       }
 
+      const fivemResult = await fivemRouter.handle(req, res, url, writeJson);
+      if (fivemResult) return fivemResult;
+
       if (pathname.startsWith("/api/")) {
         return writeJson(res, 404, { error: { message: "Unknown API route" } });
       }
@@ -824,6 +843,7 @@ function stopJobScheduler() {
 async function start() {
   await store.init();
   await jobStore.init();
+  await fivemRouter.init();
   startJobScheduler();
   const server = createServer();
   server.listen(PORT, HOST, () => {
