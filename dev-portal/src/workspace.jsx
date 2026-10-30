@@ -163,11 +163,14 @@ export function ChatWorkspace({ account }) {
   const accountKey = account.homeAccountId || account.username || "default";
   const activeKey = `dev-agent:active:${accountKey}`;
   const [sessions, setSessions] = useState([]);
+  const [memories, setMemories] = useState([]);
+  const [memoryDraft, setMemoryDraft] = useState("");
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [deletingSessionId, setDeletingSessionId] = useState(null);
+  const [memoryBusy, setMemoryBusy] = useState(false);
   const [error, setError] = useState("");
 
   const setSessionInfo = useCallback((id) => {
@@ -192,6 +195,22 @@ export function ChatWorkspace({ account }) {
     setSessions(data.sessions || []);
     return data.sessions || [];
   }, []);
+
+  const refreshMemories = useCallback(async () => {
+    const data = await api("/api/memory");
+    setMemories(data.memories || []);
+    return data.memories || [];
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    refreshMemories().catch((loadError) => {
+      if (active) setError(`Could not load long-term memory: ${loadError.message}`);
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshMemories]);
 
   useEffect(() => {
     let active = true;
@@ -294,6 +313,55 @@ export function ChatWorkspace({ account }) {
     }
   }, [activeKey, createSession, deletingSessionId, loadHistory, loading, running, sessionId, sessions, setSessionInfo]);
 
+  const saveMemory = useCallback(async (event) => {
+    event.preventDefault();
+    const text = memoryDraft.trim();
+    if (!text || memoryBusy) return;
+    setMemoryBusy(true);
+    setError("");
+    try {
+      const data = await api("/api/memory", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      setMemories(data.memories || []);
+      setMemoryDraft("");
+    } catch (memoryError) {
+      setError(`Could not save memory: ${memoryError.message}`);
+    } finally {
+      setMemoryBusy(false);
+    }
+  }, [memoryBusy, memoryDraft]);
+
+  const removeMemory = useCallback(async (id) => {
+    if (memoryBusy) return;
+    setMemoryBusy(true);
+    setError("");
+    try {
+      await api(`/api/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setMemories((current) => current.filter((item) => item.id !== id));
+    } catch (memoryError) {
+      setError(`Could not remove memory: ${memoryError.message}`);
+    } finally {
+      setMemoryBusy(false);
+    }
+  }, [memoryBusy]);
+
+  const clearMemories = useCallback(async () => {
+    if (memoryBusy || memories.length === 0) return;
+    if (!window.confirm("Clear all long-term memories? This will not delete conversation history.")) return;
+    setMemoryBusy(true);
+    setError("");
+    try {
+      await api("/api/memory", { method: "DELETE" });
+      setMemories([]);
+    } catch (memoryError) {
+      setError(`Could not clear memory: ${memoryError.message}`);
+    } finally {
+      setMemoryBusy(false);
+    }
+  }, [memories.length, memoryBusy]);
+
   const onNew = useCallback(async (message) => {
     const text = messageText(message.content).trim();
     if (!text || !sessionId) return;
@@ -321,8 +389,10 @@ export function ChatWorkspace({ account }) {
         { id: crypto.randomUUID(), role: "assistant", content: response },
       ]);
       await refreshSessions();
+      await refreshMemories();
     } catch (requestError) {
       setError(requestError.message);
+      await refreshMemories().catch(() => {});
       setMessages((current) => [
         ...current,
         { id: crypto.randomUUID(), role: "assistant", content: `Request failed: ${requestError.message}` },
@@ -330,7 +400,7 @@ export function ChatWorkspace({ account }) {
     } finally {
       setRunning(false);
     }
-  }, [refreshSessions, sessionId]);
+  }, [refreshMemories, refreshSessions, sessionId]);
 
   const runtimeMessages = useMemo(
     () => messages.map((message, index) => ({ ...message, id: message.id || `message-${index}` })),
@@ -385,10 +455,53 @@ export function ChatWorkspace({ account }) {
             ))}
           </div>
         </div>
-        <div className="sidebar-memory">
-          <span className="memory-indicator" aria-hidden="true" />
-          <span><strong>Memory enabled</strong><small>Saved to your account</small></span>
-        </div>
+        <details className="sidebar-memory memory-manager">
+          <summary className="memory-summary">
+            <span className="memory-indicator" aria-hidden="true" />
+            <span><strong>Long-term memory</strong><small>{memories.length} saved {memories.length === 1 ? "note" : "notes"}</small></span>
+            <span className="memory-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div className="memory-content">
+            {memories.length > 0 ? (
+              <ul className="memory-list">
+                {memories.map((memory) => (
+                  <li key={memory.id} className="memory-item">
+                    <span>{memory.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeMemory(memory.id)}
+                      disabled={memoryBusy}
+                      aria-label={`Forget: ${memory.text}`}
+                      title="Forget this note"
+                    >×</button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="memory-empty">No long-term notes yet. Ask me to remember something or add a note here.</p>
+            )}
+            <form className="memory-form" onSubmit={saveMemory}>
+              <label htmlFor="memoryDraft">Add a memory</label>
+              <textarea
+                id="memoryDraft"
+                value={memoryDraft}
+                onChange={(event) => setMemoryDraft(event.target.value)}
+                maxLength={500}
+                placeholder="A preference, project detail, or useful fact…"
+                rows={3}
+                disabled={memoryBusy}
+              />
+              <button type="submit" disabled={memoryBusy || !memoryDraft.trim()}>
+                {memoryBusy ? "Saving…" : "Save note"}
+              </button>
+            </form>
+            {memories.length > 0 && (
+              <button className="memory-clear" type="button" onClick={clearMemories} disabled={memoryBusy}>
+                Clear all memories
+              </button>
+            )}
+          </div>
+        </details>
       </aside>
       <section className="chat-main" aria-label="Conversation">
         <div className="chat-header">
