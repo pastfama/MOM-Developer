@@ -12,6 +12,7 @@ const main = read("dev-portal/src/main.jsx");
 const auth = read("dev-portal/src/auth.js");
 const workspace = read("dev-portal/src/workspace.jsx");
 const styles = read("dev-portal/css/style.css");
+const memoryStyles = read("dev-portal/css/memory-manager.css");
 
 test("the built portal entry mounts the React application", () => {
   assert.match(html, /<script type="module" src="\/src\/main\.jsx"><\/script>/);
@@ -37,6 +38,16 @@ test("the chat uses assistant-ui and preserves saved-session navigation", () => 
   assert.match(workspace, /\/api\/dev-agent\/history/);
   assert.match(workspace, /\/api\/sessions/);
   assert.match(workspace, /dev-agent:active:/);
+});
+
+test("the workspace exposes persistent, manageable cross-session memory", () => {
+  assert.match(workspace, /api\("\/api\/memory"/);
+  assert.match(workspace, /Long-term memory/);
+  assert.match(workspace, /Forget this note/);
+  assert.match(workspace, /Clear all memories/);
+  assert.match(workspace, /Ask me to remember something/);
+  assert.match(memoryStyles, /\.memory-manager/);
+  assert.match(main, /memory-manager\.css/);
 });
 
 test("the empty workspace offers clickable starter prompts", () => {
