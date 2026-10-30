@@ -278,17 +278,66 @@ function authFailureMessage() {
 // ── POST /api/dev-agent — one conversation turn ──
 async function handleAgentTurn(req, res) {
   const { profile, userKey } = await resolveIdentity(req);
-  let parsed;
-  try {
-    parsed = JSON.parse((await readBody(req)) || "{}");
-  } catch {
-    return writeJson(res, 400, { error: { message: "Invalid JSON body" } });
+  let message, sessionId, autoApply, uploadFiles = [];
+  const ct = req.headers["content-type"] || "";
+  if (ct && ct.includes("multipart/form-data")) {
+    const boundary = ct.split("boundary=")[1];
+    if (!boundary) {
+      return writeJson(res, 400, { error: { message: "Missing boundary" } });
+    }
+    const raw = await readBody(req);
+    const text = raw.toString("utf-8");
+    const parts = text.split("--" + boundary);
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed || trimmed === "--") continue;
+      const sepIdx = trimmed.indexOf("\r\n\r\n");
+      if (sepIdx < 0) continue;
+      const headers = trimmed.slice(0, sepIdx);
+      const content = trimmed.slice(sepIdx + 4).replace(/\r\n$/, "").trim();
+      const nameMatch = headers.match(/name="([^"]+)"/);
+      const fileNameMatch = headers.match(/filename="([^"]+)"/);
+      if (fileNameMatch) {
+        uploadFiles.push({ name: fileNameMatch[1], content });
+      } else if (nameMatch) {
+        const nm = nameMatch[1];
+        if (nm === "message") message = content;
+        else if (nm === "sessionId") sessionId = content;
+        else if (nm === "autoApply") autoApply = content === "true" ? false : AUTO_APPLY;
+      }
+    }
+    if (!message || typeof message !== "string") {
+      return writeJson(res, 400, { error: { message: "message is required" } });
+    }
+    autoApply = autoApply === undefined ? (AUTO_APPLY !== false) : autoApply;
+  } else {
+    let parsed;
+    try {
+      parsed = JSON.parse((await readBody(req)) || "{}");
+    } catch {
+      return writeJson(res, 400, { error: { message: "Invalid JSON body" } });
+    }
+    message = parsed.message;
+    sessionId = parsed.sessionId;
+    autoApply = parsed.autoApply === false ? false : AUTO_APPLY;
+    if (!message || typeof message !== "string") {
+      return writeJson(res, 400, { error: { message: "message is required" } });
+    }
   }
-  const message = parsed.message;
-  if (!message || typeof message !== "string") {
-    return writeJson(res, 400, { error: { message: "message is required" } });
+
+  // Prepend uploaded file contents to the message so the agent can read them
+  let fullMessage = message;
+  if (uploadFiles.length) {
+    const fileContext = uploadFiles.map(f => {
+      const isText = /\.(txt|js|ts|jsx|tsx|json|md|py|html|css|java|c|cpp|h|go|rs|rb|php|sh|yaml|yml|xml|ini|cfg|conf|log|sql)$/i.test(f.name);
+      if (isText) {
+        return "\n\n--- FILE: " + f.name + " ---\n" + f.content + "\n--- END FILE ---";
+      }
+      return "\n\n--- FILE: " + f.name + " (binary, " + f.content.length + " bytes) ---";
+    }).join("");
+    fullMessage = message + fileContext;
   }
-  const autoApply = parsed.autoApply === false ? false : AUTO_APPLY;
+
 
   // Load the persisted thread — this is what makes memory survive restarts.
   const session = await store.ensure(userKey, parsed.sessionId);
@@ -311,7 +360,7 @@ async function handleAgentTurn(req, res) {
   const messages = [
     { role: "system", content: systemPrompt },
     ...history,
-    { role: "user", content: message },
+    { role: "user", content: fullMessage },
   ];
 
   if (!FOUNDRY_KEY && FOUNDRY_AUTH === "key") {
@@ -361,7 +410,7 @@ async function handleAgentTurn(req, res) {
 
   // Persist the turn before doing anything else, so it is never lost.
   const saved = await store.append(userKey, session.id, [
-    { role: "user", content: message },
+    { role: "user", content: fullMessage },
     { role: "assistant", content: responseText },
   ]);
 

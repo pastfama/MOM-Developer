@@ -5,6 +5,8 @@ let sessionId = null;
 let isTyping = false;
 let activeUserKey = "anon";
 let wired = false;
+let attachments = [];
+
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -172,6 +174,53 @@ function updateSessionInfo() {
   el.textContent = sessionId ? "Saved \u00b7 " + sessionId.slice(0, 16) : "No session";
 }
 
+
+function addAttachment(file) {
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2);
+  attachments.push({ id, file });
+  renderAttachments();
+}
+
+function removeAttachment(id) {
+  attachments = attachments.filter(a => a.id !== id);
+  renderAttachments();
+}
+
+function renderAttachments() {
+  const box = document.getElementById("attachments");
+  if (!box) return;
+  box.innerHTML = "";
+  attachments.forEach(a => {
+    const chip = document.createElement("div");
+    chip.className = "attach-chip";
+    chip.title = a.file.name + " (" + (a.file.size / 1024).toFixed(1) + " KB)";
+    chip.innerHTML =
+      '<span class="name">' + esc(a.file.name) + '</span>' +
+      '<span class="remove" onclick="removeAttachment('' + a.id + '')">×</span>';
+    box.appendChild(chip);
+  });
+}
+
+
+async function apiRaw(path, options = {}) {
+  const token = await window.getAccessToken();
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers.Authorization = "Bearer " + token;
+  const res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    throw new Error(
+      "Expected JSON from " + path + " but got " + (ct || "no content-type")
+    );
+  }
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = (data.error && data.error.message) || "HTTP " + res.status;
+    throw new Error(msg);
+  }
+  return data;
+}
+
 async function sendMessage() {
   const input = document.getElementById("promptInput");
   const text = input.value.trim();
@@ -187,7 +236,13 @@ async function sendMessage() {
   try {
     const data = await api("/api/dev-agent", {
       method: "POST",
-      body: JSON.stringify({ message: text, sessionId }),
+      const form = new FormData();
+    form.append("message", text);
+    form.append("sessionId", sessionId || "");
+    attachments.forEach(a => form.append("files", a.file));
+    attachments = [];
+    renderAttachments();
+    const data = await apiRaw("/api/dev-agent", { method: "POST", body: form }),
     });
     typing.remove();
     if (data.sessionId) {
