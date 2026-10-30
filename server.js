@@ -325,7 +325,7 @@ async function handleAgentTurn(req, res) {
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth.headers },
-      body: JSON.stringify({ messages, max_tokens: 1000 }),
+      body: JSON.stringify({ messages, max_completion_tokens: 1000 }),
     });
 
   let responseText;
