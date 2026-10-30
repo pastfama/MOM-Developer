@@ -164,6 +164,14 @@ function initChat(account) {
       loadHistory().then(updateSessionInfo);
     } else {
       newSession();
+  document.getElementById("attachBtn").addEventListener("click", () => {
+    document.getElementById("fileInput").click();
+  });
+  document.getElementById("fileInput").addEventListener("change", (e) => {
+    for (const f of e.target.files) addAttachment(f);
+    e.target.value = "";
+  });
+
     }
   });
 }
@@ -196,7 +204,7 @@ function renderAttachments() {
     chip.title = a.file.name + " (" + (a.file.size / 1024).toFixed(1) + " KB)";
     chip.innerHTML =
       '<span class="name">' + esc(a.file.name) + '</span>' +
-      '<span class="remove" onclick="removeAttachment('' + a.id + '')">×</span>';
+      '<span class="remove" onclick="removeAttachment(\'' + a.id + '\')">×</span>';
     box.appendChild(chip);
   });
 }
@@ -234,16 +242,13 @@ async function sendMessage() {
   isTyping = true;
 
   try {
-    const data = await api("/api/dev-agent", {
-      method: "POST",
-      const form = new FormData();
+    const form = new FormData();
     form.append("message", text);
     form.append("sessionId", sessionId || "");
     attachments.forEach(a => form.append("files", a.file));
     attachments = [];
     renderAttachments();
-    const data = await apiRaw("/api/dev-agent", { method: "POST", body: form }),
-    });
+    const data = await apiRaw("/api/dev-agent", { method: "POST", body: form });
     typing.remove();
     if (data.sessionId) {
       sessionId = data.sessionId;
