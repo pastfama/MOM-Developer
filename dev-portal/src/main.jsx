@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { initializeAuth } from "./auth.js";
 import { ChatWorkspace } from "./workspace.jsx";
 import "../css/style.css";
+import "../css/session-management.css";
 
 const root = createRoot(document.getElementById("chat-root"));
 
