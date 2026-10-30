@@ -231,24 +231,41 @@ async function apiRaw(path, options = {}) {
 
 async function sendMessage() {
   const input = document.getElementById("promptInput");
+  const sendBtn = document.getElementById("sendBtn");
   const text = input.value.trim();
   if (!text || isTyping) return;
   input.value = "";
-  input.disabled = true;
-  document.getElementById("sendBtn").disabled = true;
+  if (input) input.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
 
   addMessage("user", text, true);
   const typing = addSystemMessage("&#8230;", true);
   isTyping = true;
 
   try {
+    const token = await window.getAccessToken().catch(() => null);
     const form = new FormData();
     form.append("message", text);
     form.append("sessionId", sessionId || "");
     attachments.forEach(a => form.append("files", a.file));
     attachments = [];
     renderAttachments();
-    const data = await apiRaw("/api/dev-agent", { method: "POST", body: form });
+    const headers = {};
+    if (token) headers.Authorization = "Bearer " + token;
+    const res = await fetch(API_BASE + "/api/dev-agent", {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      throw new Error("Expected JSON from API but got " + (ct || "no content-type"));
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = (data.error && data.error.message) || "HTTP " + res.status;
+      throw new Error(msg);
+    }
     typing.remove();
     if (data.sessionId) {
       sessionId = data.sessionId;
@@ -258,12 +275,13 @@ async function sendMessage() {
     refreshSessions();
     updateSessionInfo();
   } catch (e) {
+    console.error("[sendMessage] error:", e);
     typing.remove();
     addSystemMessage("Error: " + esc(e.message));
   } finally {
     isTyping = false;
-    input.disabled = false;
-    document.getElementById("sendBtn").disabled = false;
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
     input.focus();
     scrollToBottom();
   }
