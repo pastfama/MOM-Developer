@@ -31,7 +31,7 @@ MOM-Developer/
 │   ├── src/             # React app, MSAL auth, and assistant-ui runtime
 │   └── css/style.css    # Dark/light theme and portal styles
 ├── lib/
-│   ├── session-store.js # Disk-backed per-user conversation store
+│   ├── session-store.js # Disk-backed per-user conversation + long-term memory store
 │   ├── apply-engine.js  # Writes the agent's file blocks into the repo
 │   └── foundry-auth.js  # Keyless Entra ID auth (App Service + IMDS)
 ├── deploy/              # systemd installer + prod runbook (DEPLOY.md)
@@ -64,15 +64,23 @@ disabled with `DEV_AGENT_AUTO_APPLY=0`.
 
 ## Memory
 
-Every turn is appended to disk per user, keyed to the Entra ID object id:
+Conversation turns and long-term notes are stored separately per user, keyed to
+the Entra ID object id:
 
 ```
 .data/sessions/users/<sha256(userKey)>/sessions/<sessionId>.json
+.data/sessions/users/<sha256(userKey)>/memory.json
 ```
 
-History survives page reloads, browser restarts and server restarts, and is
-replayed into the model on every turn. Sessions are listed in the sidebar so any
-earlier conversation can be reopened.
+Conversation history survives page reloads, browser restarts and server restarts.
+The active conversation is replayed into the model on each turn; all conversations
+remain listed in the sidebar so an earlier one can be reopened.
+
+Long-term notes are included in every conversation, so useful facts and
+preferences carry across sessions. Ask the agent **“Remember that …”** to save a
+note or **“Forget that …”** to remove an exact match, or use the sidebar's
+**Long-term memory** panel to add, review, and remove notes. Notes are user-scoped,
+limited to 100 entries of 500 characters each, and never modify model weights.
 
 ## API
 
@@ -83,6 +91,10 @@ earlier conversation can be reopened.
 | `GET` | `/api/sessions` | List this user's saved sessions |
 | `POST` | `/api/sessions` | Start a new session |
 | `DELETE` | `/api/sessions/:id` | Delete a session |
+| `GET` | `/api/memory` | List this user's long-term memories |
+| `POST` | `/api/memory` | Save a memory (`{ "text": "…" }`) |
+| `DELETE` | `/api/memory/:id` | Delete one memory |
+| `DELETE` | `/api/memory` | Clear all memories |
 | `GET` | `/api/health` | Config check (key present, auto-apply, data dir) |
 
 The React frontend is built to `dev-portal/dist/`; the Node server serves only
