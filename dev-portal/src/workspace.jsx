@@ -167,6 +167,7 @@ export function ChatWorkspace({ account }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [error, setError] = useState("");
 
   const setSessionInfo = useCallback((id) => {
@@ -256,6 +257,43 @@ export function ChatWorkspace({ account }) {
     }
   }, [activeKey, createSession, running, setSessionInfo]);
 
+  const deleteSession = useCallback(async (id) => {
+    if (running || loading || deletingSessionId) return;
+    const session = sessions.find((item) => item.id === id);
+    const title = session?.title || "Untitled conversation";
+    if (!window.confirm(`Delete “${title}”?\n\nThis permanently deletes this conversation.`)) return;
+
+    const deletingActive = id === sessionId;
+    setDeletingSessionId(id);
+    setError("");
+    if (deletingActive) setLoading(true);
+
+    try {
+      await api(`/api/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const remaining = sessions.filter((item) => item.id !== id);
+      setSessions(remaining);
+
+      if (deletingActive) {
+        setMessages([]);
+        setSessionId(null);
+        localStorage.removeItem(activeKey);
+        setSessionInfo(null);
+
+        const replacement = remaining[0] || await createSession();
+        if (remaining.length === 0) setSessions([replacement]);
+        setSessionId(replacement.id);
+        localStorage.setItem(activeKey, replacement.id);
+        setSessionInfo(replacement.id);
+        setMessages(await loadHistory(replacement.id));
+      }
+    } catch (deleteError) {
+      setError(`Could not delete conversation: ${deleteError.message}`);
+    } finally {
+      setDeletingSessionId(null);
+      if (deletingActive) setLoading(false);
+    }
+  }, [activeKey, createSession, deletingSessionId, loadHistory, loading, running, sessionId, sessions, setSessionInfo]);
+
   const onNew = useCallback(async (message) => {
     const text = messageText(message.content).trim();
     if (!text || !sessionId) return;
@@ -298,6 +336,7 @@ export function ChatWorkspace({ account }) {
     () => messages.map((message, index) => ({ ...message, id: message.id || `message-${index}` })),
     [messages]
   );
+  const sessionsBusy = loading || running || Boolean(deletingSessionId);
 
   return (
     <div className="chat-layout">
@@ -306,7 +345,7 @@ export function ChatWorkspace({ account }) {
           <span className="sidebar-mark" aria-hidden="true">D</span>
           <span><strong>Dev workspace</strong><small>Fameshire engineering</small></span>
         </div>
-        <button className="btn-new" type="button" onClick={newSession} disabled={loading || running}>
+        <button className="btn-new" type="button" onClick={newSession} disabled={sessionsBusy}>
           <span aria-hidden="true">＋</span> New conversation
         </button>
         <div className="sidebar-section">
@@ -317,19 +356,32 @@ export function ChatWorkspace({ account }) {
           <div className="session-list">
             {sessions.length === 0 && !loading && <div className="session-empty">Your conversation history will appear here.</div>}
             {sessions.map((session) => (
-              <button
-                key={session.id}
-                type="button"
-                className={`session-item${session.id === sessionId ? " active" : ""}`}
-                onClick={() => selectSession(session.id)}
-                disabled={loading || running}
-                aria-current={session.id === sessionId ? "page" : undefined}
-              >
-                <span className="session-title">{session.title || "Untitled conversation"}</span>
-                <span className="session-meta">
-                  {session.turns || 0} messages · {session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : ""}
-                </span>
-              </button>
+              <div className="session-row" key={session.id}>
+                <button
+                  type="button"
+                  className={`session-item${session.id === sessionId ? " active" : ""}`}
+                  onClick={() => selectSession(session.id)}
+                  disabled={sessionsBusy}
+                  aria-current={session.id === sessionId ? "page" : undefined}
+                >
+                  <span className="session-title">{session.title || "Untitled conversation"}</span>
+                  <span className="session-meta">
+                    {session.turns || 0} messages · {session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : ""}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="session-delete"
+                  onClick={() => deleteSession(session.id)}
+                  disabled={sessionsBusy}
+                  aria-label={`Delete ${session.title || "untitled conversation"}`}
+                  title="Delete conversation"
+                >
+                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                    <path d="M4.5 6h11M8 6V4.5h4V6m2 0-.6 9.1a1 1 0 0 1-1 .9H7.6a1 1 0 0 1-1-.9L6 6m2.5 2.2v5m3-5v5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             ))}
           </div>
         </div>
