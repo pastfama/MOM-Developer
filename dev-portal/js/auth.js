@@ -164,7 +164,7 @@ window.getAccessToken = async () => {
       msalInstance.setActiveAccount(account);
       try {
         const result = await msalInstance.acquireTokenSilent({
-          ...loginRequest,
+          ...silentRequest,
           account,
         });
         resolve(result.accessToken);

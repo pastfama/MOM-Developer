@@ -18,7 +18,12 @@ const msalConfig = {
 
 const loginRequest = {
   scopes: ["User.Read"],
-  prompt: "select_account",
+};
+// Silent token acquisition must NOT include "prompt" — MSAL will use the
+// cached account silently. Only interactive login (loginPopup) should ever
+// show the account chooser, and only when there's no cached session.
+const silentRequest = {
+  scopes: ["User.Read"],
 };
 
 // API backend.

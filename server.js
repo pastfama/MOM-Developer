@@ -7,6 +7,7 @@ const path = require("path");
 const { URL } = require("url");
 
 const { SessionStore } = require("./lib/session-store");
+const { JobStore } = require("./lib/job-store");
 const { extractFileBlocks, applyFileBlocks } = require("./lib/apply-engine");
 const { getFoundryToken, describeIdentityConfig } = require("./lib/foundry-auth");
 
@@ -56,6 +57,7 @@ const MIME = {
 };
 
 const store = new SessionStore({ root: path.join(DATA_ROOT, "sessions") });
+const jobStore = new JobStore({ root: path.join(DATA_ROOT, "jobs") });
 
 function cors() {
   return {
@@ -489,6 +491,76 @@ async function handleSessionDelete(req, res, sessionId) {
   writeJson(res, ok ? 200 : 404, { deleted: ok, sessionId });
 }
 
+// ── /api/jobs — list and create jobs —─
+async function handleJobs(req, res) {
+  const { userKey } = await resolveIdentity(req);
+  if (req.method === "GET") {
+    const jobs = await jobStore.list(userKey);
+    return writeJson(res, 200, { jobs });
+  }
+  if (req.method === "POST") {
+    let body = {};
+    try { body = JSON.parse((await readBody(req)) || "{}"); } catch {}
+    const created = await jobStore.create(userKey, {
+      title: body.title,
+      prompt: body.prompt,
+      scheduleType: body.scheduleType,
+      intervalMinutes: body.intervalMinutes,
+      dailyTime: body.dailyTime,
+      cron: body.cron,
+      enabled: body.enabled,
+    });
+    return writeJson(res, 201, { job: created });
+  }
+  return writeJson(res, 405, { error: { message: "Method not allowed" } });
+}
+
+async function handleJobById(req, res, jobId) {
+  const { userKey } = await resolveIdentity(req);
+  if (req.method === "GET") {
+    const job = await jobStore.get(userKey, jobId);
+    if (!job) return writeJson(res, 404, { error: { message: "Job not found" } });
+    return writeJson(res, 200, { job });
+  }
+  if (req.method === "DELETE") {
+    const ok = await jobStore.remove(userKey, jobId);
+    return writeJson(res, ok ? 200 : 404, { deleted: ok, jobId });
+  }
+  return writeJson(res, 405, { error: { message: "Method not allowed" } });
+}
+
+async function handleJobRun(req, res, jobId) {
+  const { userKey } = await resolveIdentity(req);
+  const job = await jobStore.get(userKey, jobId);
+  if (!job) return writeJson(res, 404, { error: { message: "Job not found" } });
+  try {
+    const result = await runJobTurn(job);
+    if (result.error) {
+      await jobStore.recordRun(userKey, jobId, null, result.error);
+      return writeJson(res, 200, { result: result.error, error: true });
+    }
+    let out = result.output;
+    if (result.applied && result.applied.length)
+      out += "\n\nFiles written: " + result.applied.map((a) => a.path).join(", ");
+    if (result.skipped && result.skipped.length)
+      out += "\n\nSkipped: " + result.skipped.map((s) => s.path).join(", ");
+    await jobStore.recordRun(userKey, jobId, out, null);
+    return writeJson(res, 200, { result: out });
+  } catch (e) {
+    await jobStore.recordRun(userKey, jobId, null, e.message);
+    return writeJson(res, 500, { error: { message: e.message } });
+  }
+}
+
+async function handleJobToggle(req, res, jobId) {
+  const { userKey } = await resolveIdentity(req);
+  const job = await jobStore.get(userKey, jobId);
+  if (!job) return writeJson(res, 404, { error: { message: "Job not found" } });
+  const updated = await jobStore.update(userKey, jobId, { enabled: !job.enabled });
+  return writeJson(res, 200, { job: updated });
+}
+
+// ── Static files —─
 // ── Static files ──
 // Only dev-portal/ is public. The old code joined every request onto the repo
 // root, so /js/chat.js fell through to index.html and the browser received
@@ -595,6 +667,25 @@ function createServer() {
         return await handleSessionDelete(req, res, decodeURIComponent(del[1]));
       }
 
+      const jobDel = /^\/api\/jobs\/([^/]+)\/(run|toggle)$/.exec(pathname);
+      if (jobDel) {
+        if (req.method == "POST") {
+          const [, jobId, action] = jobDel;
+          if (action == "run") return await handleJobRun(req, res, decodeURIComponent(jobId));
+          if (action == "toggle") return await handleJobToggle(req, res, decodeURIComponent(jobId));
+        }
+        return writeJson(res, 405, { error: { message: "Method not allowed" } });
+      }
+
+      const jobById = /^\/api\/jobs\/([^/]+)$/.exec(pathname);
+      if (jobById && req.method == "GET") return await handleJobById(req, res, decodeURIComponent(jobById[1]));
+      if (jobById && req.method == "DELETE") return await handleJobById(req, res, decodeURIComponent(jobById[1]));
+
+      if (pathname === "/api/jobs" || pathname === "/api/jobs/") {
+        if (req.method == "GET" || req.method == "POST") return await handleJobs(req, res);
+        return writeJson(res, 405, { error: { message: "Method not allowed" } });
+      }
+
       if (pathname.startsWith("/api/")) {
         return writeJson(res, 404, { error: { message: "Unknown API route" } });
       }
@@ -609,8 +700,131 @@ function createServer() {
   });
 }
 
+// ── Run one job turn against Foundry (same context as chat) —─
+async function runJobTurn(job) {
+  const userKey = job.userKey;
+  const [azureCtx, githubCtx] = await Promise.all([
+    cached("azure:" + userKey, CONTEXT_TTL, listAzureResources),
+    cached("github:" + userKey, CONTEXT_TTL, listGitHubRepos),
+  ]);
+  const systemPrompt = buildSystemPrompt({
+    profile: { name: "Agent", email: "", id: "" },
+    azureCtx,
+    githubCtx,
+    sessionTitle: job.title,
+  });
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: job.prompt },
+  ];
+  if (!FOUNDRY_KEY && FOUNDRY_AUTH === "key") {
+    return { error: authFailureMessage(), code: "no_credentials" };
+  }
+  const endpoint = `${FOUNDRY_EP}/openai/deployments/${AGENT_ID}/chat/completions?api-version=${AGENT_API_VER}`;
+  const callAgent = (auth) =>
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth.headers },
+      body: JSON.stringify({ messages, max_completion_tokens: 1000 }),
+    });
+  let auth = await resolveFoundryAuth();
+  if (!auth) {
+    return { error: authFailureMessage(), code: "no_credentials" };
+  }
+  let ar = await callAgent(auth);
+  if (ar.status === 401 && auth.mode === "entra") {
+    auth = await resolveFoundryAuth({ forceRefresh: true });
+    if (auth) ar = await callAgent(auth);
+  }
+  const ad = await ar.json().catch(() => ({}));
+  if (!ar.ok) {
+    return { error: "Foundry agent error (HTTP " + ar.status + ")", code: ar.status, detail: ad };
+  }
+  const responseText = extractText(ad);
+  let applyResult = { applied: [], skipped: [], enabled: false };
+  try {
+    const blocks = extractFileBlocks(responseText);
+    if (blocks.length) {
+      const result = await applyFileBlocks({
+        root: APPLY_ROOT,
+        blocks,
+        log: (line) => console.log("[job " + job.id + "] " + line),
+      });
+      applyResult = { ...result, enabled: true };
+    }
+  } catch (e) {
+    console.error("[job " + job.id + "] apply failed:", e.message);
+  }
+  return {
+    output: responseText,
+    applied: applyResult.applied,
+    skipped: applyResult.skipped,
+    autoApply: applyResult.enabled,
+  };
+}
+
+// ── Job scheduler — checks every 60s for due jobs —─
+let jobTimer = null;
+
+function startJobScheduler() {
+  if (jobTimer) return;
+  jobTimer = setInterval(async () => {
+    try {
+      const usersDir = path.join(DATA_ROOT, "jobs", "users");
+      let userDirs;
+      try {
+        userDirs = await fsp.readdir(usersDir);
+      } catch {
+        return;
+      }
+      for (const userDir of userDirs) {
+        const jobsDir = path.join(usersDir, userDir, "jobs");
+        let jobFiles;
+        try {
+          jobFiles = await fsp.readdir(jobsDir);
+        } catch {
+          continue;
+        }
+        for (const jobFile of jobFiles) {
+          if (!jobFile.endsWith(".json")) continue;
+          const record = await jobStore._read(path.join(jobsDir, jobFile));
+          if (!record || !record.enabled || !dueNow(record)) continue;
+          const userKey = record.userKey;
+          try {
+            const result = await runJobTurn(record);
+            if (result.error) {
+              await jobStore.recordRun(userKey, record.id, null, result.error);
+            } else {
+              let out = result.output;
+              if (result.applied && result.applied.length)
+                out += "\n\nFiles written: " + result.applied.map((a) => a.path).join(", ");
+              if (result.skipped && result.skipped.length)
+                out += "\n\nSkipped: " + result.skipped.map((s) => s.path).join(", ");
+              await jobStore.recordRun(userKey, record.id, out, null);
+            }
+          } catch (e) {
+            await jobStore.recordRun(userKey, record.id, null, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[job scheduler] error:", e.message);
+    }
+  }, 60_000);
+  console.log("[job scheduler] started (60s interval)");
+}
+
+function stopJobScheduler() {
+  if (jobTimer) {
+    clearInterval(jobTimer);
+    jobTimer = null;
+  }
+}
+
 async function start() {
   await store.init();
+  await jobStore.init();
+  startJobScheduler();
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`\n=== Dev Agent server on http://localhost:${PORT} ===`);

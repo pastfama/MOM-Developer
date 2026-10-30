@@ -47,6 +47,7 @@
           <aside class="sidebar">
             <div class="sidebar-header">
               <button id="newSessionBtn" class="btn-new">+ New session</button>
+              <button id="jobsBtn" class="btn-new" style="margin-top:8px;">📋 Jobs</button>
             </div>
             <div class="sidebar-label">Saved sessions</div>
             <div id="sessionList" class="session-list"></div>
@@ -71,6 +72,45 @@
           </div>
         </div>
       </section>
+      <!-- Jobs panel -->
+      <div class="jobs-backdrop" id="jobsBackdrop"></div>
+      <div class="jobs-panel" id="jobsPanel">
+        <div class="jobs-header">
+          <h2>Scheduled Jobs</h2>
+          <button id="jobsClose" class="jobs-close">Close</button>
+        </div>
+        <div class="jobs-content">
+          <div id="jobsEmpty" class="jobs-empty" style="display:none;">
+            <h3>No jobs yet</h3>
+            <p>Create your first scheduled job to have the agent run tasks automatically.</p>
+          </div>
+          <div id="jobsList" class="jobs-list"></div>
+          <div id="jobsForm" style="display:none; margin-top:24px;">
+            <div class="job-form">
+              <h3>Create Job</h3>
+              <label>Job title</label>
+              <input type="text" id="jobTitle" placeholder="e.g. Daily Azure inventory">
+              <label>Prompt</label>
+              <textarea id="jobPrompt" placeholder="What should the agent do?"></textarea>
+              <label>Schedule</label>
+              <select id="jobSchedule">
+                <option value="interval">Every N minutes</option>
+                <option value="daily">Daily at time</option>
+                <option value="cron">Cron expression</option>
+              </select>
+              <div class="job-form-row">
+                <div><label>Minutes</label><input type="number" id="jobInterval" value="60" min="1"></div>
+                <div><label>Time (HH:MM)</label><input type="time" id="jobDailyTime" value="09:00"></div>
+              </div>
+              <div><label>Cron (5-field)</label><input type="text" id="jobCron" placeholder="0 9 * * *"></div>
+              <div class="job-actions-row">
+                <button id="jobsCreateBtn" class="run">Create job</button>
+                <button id="jobsCancelBtn" class="toggle">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <footer class="foot">
@@ -85,6 +125,7 @@
   <script src="js/config.js?v=7" defer></script>
   <script src="js/auth.js?v=7" defer></script>
   <script src="js/chat.js?v=8" defer></script>
+  <script src="js/jobs-ui.js?v=1" defer></script>
   <script src="js/app.js?v=7" defer></script>
 </body>
 </html>
