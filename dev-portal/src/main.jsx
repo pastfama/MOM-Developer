@@ -4,6 +4,7 @@ import { initializeAuth } from "./auth.js";
 import { ChatWorkspace } from "./workspace.jsx";
 import "../css/style.css";
 import "../css/session-management.css";
+import "../css/memory-manager.css";
 
 const root = createRoot(document.getElementById("chat-root"));
 
