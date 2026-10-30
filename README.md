@@ -119,9 +119,9 @@ npm test                  # run the test suite
 | `FOUNDRY_AUTH` | `auto` (identity, then key) \| `entra` (identity only) \| `key` | `auto` |
 | `FOUNDRY_TOKEN_SCOPE` | Entra scope for the agent endpoint | `https://ai.azure.com/.default` |
 | `FOUNDRY_CLIENT_ID` | Client id of a *user-assigned* identity, if used | *(system-assigned)* |
-| `FOUNDRY_PROJECT_ENDPOINT` | Foundry project endpoint | `https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry` |
-| `AGENT_ID` | Foundry agent name | `momtv-developer` |
-| `AGENT_API_VERSION` | Foundry API version | `2025-05-15-preview` |
+| `FOUNDRY_PROJECT_ENDPOINT` | Foundry inference endpoint (OpenAI-compatible base URL) | `https://mom-dev-foundry.openai.azure.com` |
+| `AGENT_ID` | Foundry chat deployment name | `gpt-6-luna` |
+| `AGENT_API_VERSION` | Foundry API version | `2024-10-21` |
 | `GITHUB_PAT` | GitHub personal access token (repo + read:user) | *(required for repo context)* |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `8cce2fe7-7c75-4969-9da9-707aadd13e52` |
 | `AZURE_TENANT_ID` | Azure AD tenant ID | `185b412d-bddc-454b-9987-40628582c63c` |

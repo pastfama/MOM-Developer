@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dev Agent — dev.fameshire.com</title>
-  <meta name="description" content="Personal Dev Agent with Microsoft login. Knows you, remembers everything, knows your Azure and GitHub." />
-  <meta name="theme-color" content="#05070d" />
+  <title>🚀 Dev Agent — dev.fameshire.com</title>
+  <meta name="description" content="Your enthusiastic Personal Dev Agent! Colorful, energetic, and always ready to help with Azure, GitHub, and code." />
+  <meta name="theme-color" content="#ec4899" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=3" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%2305070d'/%3E%3Ccircle cx='50' cy='50' r='9' fill='%233b82f6'/%3E%3C/svg%3E" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css?v=4" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230f0c29'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23ec4899'/%3E%3C/svg%3E" />
 </head>
 <body>
   <div class="shell">
     <header class="bar">
       <div class="brand">
-        <span class="mark">D</span><span class="name">Dev Agent</span>
-        <span class="subtitle">dev.fameshire.com &bull; Microsoft login</span>
+        <span class="mark">⚡</span><span class="name">Dev Agent</span>
+        <span class="subtitle">dev.fameshire.com &bull; Microsoft login &bull; ALWAYS ENERGIZED 🔥</span>
       </div>
       <div class="user" id="userBox" style="display:none;">
         <span id="userName"></span>
@@ -28,16 +28,17 @@
       <!-- LOGGED OUT: landing + login -->
       <section id="landing" class="panel">
         <div class="lock-screen">
-          <div class="lock-icon">&#128274;</div>
-          <h1>Sign in to your Dev Agent</h1>
-          <p class="lead">Continue with Microsoft. The agent knows who you are, remembers every conversation, and has full context on your Azure estate and GitHub repositories.</p>
+          <div class="lock-icon">🔥</div>
+          <h1>Sign in to your Dev Agent!</h1>
+          <p class="lead">Let's gooo! 🚀 Your enthusiastic Dev Agent is ready to rock your Azure estate and GitHub repos. Microsoft login gets you in — and the party starts immediately!</p>
           <div class="features">
-            <div class="feat"><span>&#128274;</span><h3>Microsoft Login</h3><p>Entra ID single sign-on. Your identity flows into every agent session.</p></div>
-            <div class="feat"><span>&#128197;</span><h3>Remembers Everything</h3><p>Conversation history is persisted per user — the agent never forgets what you told it.</p></div>
-            <div class="feat"><span>&#128221;</span><h3>Knows Your Azure</h3><p>Live inventory of your Azure resources — subscriptions, resource groups, services, and their state.</p></div>
-            <div class="feat"><span>&#128483;</span><h3>Knows Your GitHub</h3><p>All your repositories, languages, descriptions, and recent activity available to the agent.</p></div>
+            <div class="feat"><span>⚡</span><h3>Instant Energy</h3><p>The agent never idles — always hyped, always ready, always working for you!</p></div>
+            <div class="feat"><span>🔐</span><h3>Microsoft Login</h3><p>Entra ID single sign-on. Your identity flows into every agent session.</p></div>
+            <div class="feat"><span>🧠</span><h3>Remembers Everything</h3><p>Conversation history is persisted per user — the agent never forgets what you told it.</p></div>
+            <div class="feat"><span>☁️</span><h3>Knows Your Azure</h3><p>Live inventory of your Azure resources — subscriptions, resource groups, services, and their state.</p></div>
+            <div class="feat"><span>🐙</span><h3>Knows Your GitHub</h3><p>All your repositories, languages, descriptions, and recent activity available to the agent.</p></div>
           </div>
-          <button id="loginBtn" class="btn-login">Sign in with Microsoft</button>
+          <button id="loginBtn" class="btn-login">🔥 Sign in with Microsoft</button>
         </div>
       </section>
 
@@ -45,19 +46,26 @@
       <section id="chat" class="panel chat-panel" style="display:none;">
         <div class="chat-layout">
           <aside class="sidebar">
-            <button id="newSessionBtn" class="btn-new">+ New session</button>
+            <button id="newSessionBtn" class="btn-new">✨ New session</button>
             <div class="sidebar-label">Saved sessions</div>
             <div id="sessionList" class="session-list"></div>
           </aside>
           <div class="chat-main">
             <div class="chat-header">
-              <h2>Dev Agent</h2>
-              <span class="status-dot" id="statusDot"></span><span id="statusText">Ready</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:24px;">🤖</span>
+                <h2>Dev Agent</h2>
+              </div>
+              <div class="status-group">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">HYPED &amp; READY 🔥</span>
+              </div>
+              <div class="energy-bar"><div class="energy-fill"></div></div>
             </div>
             <div class="chat-messages" id="messages"></div>
             <div class="chat-input-wrap">
-              <input type="text" id="promptInput" placeholder="Ask the Dev Agent anything about your Azure, GitHub, or code&#8230;" autocomplete="off" />
-              <button id="sendBtn">Send</button>
+              <input type="text" id="promptInput" placeholder="Ask the Dev Agent anything — I'm ready to go! ⚡" autocomplete="off" />
+              <button id="sendBtn">SEND 🚀</button>
             </div>
           </div>
         </div>
@@ -65,9 +73,11 @@
     </main>
 
     <footer class="foot">
-      <span>Dev Agent &bull; dev.fameshire.com</span>
+      <span style="color:#fff;font-weight:800;">⚡ Dev Agent</span>
       <span class="sep">&#8226;</span>
       <span id="sessionInfo">No session</span>
+      <span class="sep">&#8226;</span>
+      <span class="enthusiasm-badge" id="enthusiasmBadge">ENERGY: MAXIMUM 💥</span>
     </footer>
   </div>
 
