@@ -204,6 +204,64 @@ test("history is persisted and listed for the signed-in user", async () => {
   assert.equal(hist.messages[0].content, "ship the feature");
 });
 
+test("long-term memory API supports adding, listing, and removing notes", async () => {
+  const clear = await fetch(base + "/api/memory", { method: "DELETE", headers: authHeaders });
+  assert.equal(clear.status, 200);
+
+  const create = await fetch(base + "/api/memory", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "Works mostly in TypeScript" }),
+  });
+  assert.equal(create.status, 201);
+  const created = await create.json();
+  assert.equal(created.memory.text, "Works mostly in TypeScript");
+
+  const list = await fetch(base + "/api/memory", { headers: authHeaders });
+  assert.deepEqual((await list.json()).memories, [created.memory]);
+
+  const remove = await fetch(base + "/api/memory/" + created.memory.id, {
+    method: "DELETE",
+    headers: authHeaders,
+  });
+  assert.equal(remove.status, 200);
+  assert.deepEqual((await (await fetch(base + "/api/memory", { headers: authHeaders })).json()).memories, []);
+});
+
+test("remember requests carry explicit facts into new sessions and forget them on request", async () => {
+  await fetch(base + "/api/memory", { method: "DELETE", headers: authHeaders });
+
+  const remember = await fetch(base + "/api/dev-agent", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "Remember that I prefer concise answers." }),
+  });
+  assert.equal(remember.status, 200);
+  assert.match(foundryCalls.at(-1).input[0].content, /I prefer concise answers/);
+
+  const newSession = await fetch(base + "/api/sessions", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: "{}",
+  });
+  const sessionId = (await newSession.json()).session.id;
+  const followUp = await fetch(base + "/api/dev-agent", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "What response style do I prefer?", sessionId }),
+  });
+  assert.equal(followUp.status, 200);
+  assert.match(foundryCalls.at(-1).input[0].content, /I prefer concise answers/);
+
+  const forget = await fetch(base + "/api/dev-agent", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "Forget that I prefer concise answers." }),
+  });
+  assert.equal(forget.status, 200);
+  assert.deepEqual((await (await fetch(base + "/api/memory", { headers: authHeaders })).json()).memories, []);
+});
+
 test("another user cannot read that session", async () => {
   const listRes = await fetch(base + "/api/sessions", { headers: authHeaders });
   const mine = (await listRes.json()).sessions[0].id;
