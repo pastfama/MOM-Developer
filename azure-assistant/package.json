@@ -1,0 +1,18 @@
+{
+  "name": "azure-assistant",
+  "version": "1.0.0",
+  "description": "Azure Management Assistant - create/delete RGs, manage networking, DNS, VMs, and deploy code",
+  "main": "src/index.js",
+  "bin": {
+    "az-assistant": "src/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "child_process": "latest",
+    "commander": "^12.1.0",
+    "fs": "latest"
+  }
+}
