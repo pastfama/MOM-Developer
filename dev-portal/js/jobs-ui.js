@@ -123,6 +123,22 @@ async function authHeaders() {
   return h;
 }
 
+// Fetch FiveM status
+async function fetchFivemStatus() {
+  try {
+    const res = await fetch("/api/fivem/status", { headers: await authHeaders() });
+    const data = await res.json();
+    const el = document.getElementById("fivemStatus");
+    if (el) {
+      el.textContent = data.enabled ? "FiveM: " + (data.autoDeploy ? "Auto-deploy ON" : "Deploy OFF") : "FiveM: Disabled";
+      el.style.color = data.enabled && data.autoDeploy ? "#4ade80" : "#fca5a5";
+    }
+  } catch {}
+}
+
+setInterval(fetchFivemStatus, 10000);
+fetchFivemStatus();
+
 // Wire up jobs UI
 document.getElementById("jobsBtn")?.addEventListener("click", openJobsPanel);
 document.getElementById("jobsClose")?.addEventListener("click", closeJobsPanel);
@@ -139,3 +155,16 @@ document.getElementById("jobSchedule")?.addEventListener("change", (e) => {
   dailyRow.style.display = e.target.value === "daily" ? "flex" : "none";
   cronRow.style.display = e.target.value === "cron" ? "block" : "none";
 });
+
+function fillFiveMJob(title, prompt, scheduleType, intervalMinutes) {
+  document.getElementById("jobTitle").value = title;
+  document.getElementById("jobPrompt").value = prompt;
+  document.getElementById("jobSchedule").value = scheduleType;
+  document.getElementById("jobInterval").value = intervalMinutes;
+  document.getElementById("jobDailyTime").value = "09:00";
+  document.getElementById("jobCron").value = "";
+  // Trigger schedule change to show/hide fields
+  const event = new Event("change");
+  document.getElementById("jobSchedule").dispatchEvent(event);
+  document.getElementById("jobsForm").style.display = "block";
+}

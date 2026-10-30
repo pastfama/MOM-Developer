@@ -87,6 +87,14 @@
           <div id="jobsList" class="jobs-list"></div>
           <div id="jobsForm" style="display:none; margin-top:24px;">
             <div class="job-form">
+              <h4 style="margin-top:0; color:#666;">Quick templates</h4>
+              <div class="job-templates" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                <button type="button" class="toggle small" onclick="fillFiveMJob('FiveM Vehicle Spawner', 'Create a FiveM resource that adds a vehicle spawner command (/spawncar) using QBcore. Include fxmanifest.lua, client.lua, and server.lua.', 'interval', 60)">Vehicle Spawner</button>
+                <button type="button" class="toggle small" onclick="fillFiveMJob('FiveM Job Center', 'Create a FiveM job center resource with NPC interactions, job management, and paycheck system using QBcore framework.', 'interval', 120)">Job Center</button>
+                <button type="button" class="toggle small" onclick="fillFiveMJob('FiveM Anti-Cheat Monitor', 'Create a FiveM resource that monitors for common cheats and logs violations to a Discord webhook.', 'interval', 30)">Anti-Cheat</button>
+                <button type="button" class="toggle small" onclick="fillFiveMJob('FiveM Economy Sync', 'Create a FiveM resource that syncs player economy data with an external database every hour.', 'interval', 60)">Economy Sync</button>
+              </div>
+              <hr style="margin:8px 0; border:none; border-top:1px solid #333;">
               <h3>Create Job</h3>
               <label>Job title</label>
               <input type="text" id="jobTitle" placeholder="e.g. Daily Azure inventory">
@@ -116,7 +124,7 @@
     <footer class="foot">
       <span>Dev Agent &bull; dev.fameshire.com</span>
       <span class="sep">&#8226;</span>
-      <span id="sessionInfo">No session</span>
+      <span id="sessionInfo">No session</span>\n      <span class="sep">&#8226;</span>\n      <span id="fivemStatus" style="color:#4ade80;">FiveM: Ready</span>
     </footer>
   </div>
 

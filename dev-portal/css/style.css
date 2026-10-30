@@ -191,6 +191,32 @@ body { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .msg-bubble pre.code code { background: none; border: none; padding: 0; color: #cbd5e1; }
 .msg.user .msg-bubble code { background: rgba(0,0,0,0.2); border-color: rgba(0,0,0,0.3); color: #000; }
 
+/* ── FiveM status ── */
+#fivemStatus {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+/* ── Job template buttons ── */
+.job-templates .toggle.small {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.job-templates .toggle.small:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #fff;
+}
+
 .applied {
   margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(34, 197, 94, 0.2);
   background: rgba(17, 24, 39, 0.6); border-radius: var(--radius-sm); display: flex; flex-wrap: wrap; gap: 6px;
