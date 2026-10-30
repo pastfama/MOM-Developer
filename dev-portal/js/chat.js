@@ -239,7 +239,7 @@ function addMessage(role, content, scroll = true, applied, skipped) {
 function addSystemMessage(content, scroll = true) {
   const messages = document.getElementById("messages");
   const div = document.createElement("div");
-  div.className = "msg system msg-typing";
+  div.className = "msg system";
   div.innerHTML = '<div class="msg-bubble">' + content + "</div>";
   messages.appendChild(div);
   if (scroll) scrollToBottom();
