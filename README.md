@@ -134,7 +134,8 @@ npm test                  # run the test suite
 | `DEV_AGENT_AUTO_APPLY` | Write the agent's file blocks into the repo (`0` disables) | `1` |
 | `DEV_AGENT_APPLY_ROOT` | Tree the agent may write into | repo root |
 
-The chat model picker offers GPT-4.1 mini and GPT-5 mini. Deploy GPT-5 mini in
+The chat model picker offers the GPT-4.1 mini and GPT-5 mini choices; option
+labels render the configured deployment names. Deploy GPT-5 mini in
 the configured Foundry project and set `FOUNDRY_MODEL_GPT5_MINI` to that
 deployment's name before selecting it. The default matches the model ID only
 when the Foundry deployment itself is named `gpt-5-mini`.

@@ -130,10 +130,10 @@ test("health endpoint reports configuration", async () => {
   assert.equal(data.ok, true);
   assert.equal(data.foundryConfigured, true);
   assert.equal(data.autoApply, true);
-  assert.deepEqual(data.models, [
-    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
-    { id: "gpt-5-mini", label: "GPT-5 mini" },
-  ]);
+  assert.deepEqual(
+    data.models.map((m) => m.id),
+    ["gpt-4.1-mini", "gpt-5-mini"]
+  );
 });
 
 test("unknown API routes return JSON, never HTML", async () => {
