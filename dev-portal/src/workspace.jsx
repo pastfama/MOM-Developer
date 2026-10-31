@@ -168,11 +168,17 @@ export function ChatWorkspace({ account }) {
   const accountKey = account.homeAccountId || account.username || "default";
   const activeKey = `dev-agent:active:${accountKey}`;
   const modelKey = `dev-agent:model:${accountKey}`;
+  const githubRepoKey = `dev-agent:github-repo:${accountKey}`;
   const [selectedModel, setSelectedModel] = useState(() => {
     const saved = localStorage.getItem(modelKey);
     return modelOptions.some((model) => model.id === saved) ? saved : "gpt-4.1-mini";
   });
   const [sessions, setSessions] = useState([]);
+  const [githubRepos, setGithubRepos] = useState([]);
+  const [githubConfigured, setGithubConfigured] = useState(false);
+  const [selectedGithubRepo, setSelectedGithubRepo] = useState(() =>
+    localStorage.getItem(githubRepoKey) || "all"
+  );
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -202,11 +208,32 @@ export function ChatWorkspace({ account }) {
     return data.sessions || [];
   }, []);
 
+  const loadGithubRepos = useCallback(async () => {
+    try {
+      const data = await api("/api/github/repos");
+      const repositories = data.repositories || [];
+      setGithubRepos(repositories);
+      setGithubConfigured(Boolean(data.configured));
+      const remembered = localStorage.getItem(githubRepoKey) || "all";
+      const selected = remembered === "all" || repositories.some((repo) => repo.fullName === remembered)
+        ? remembered
+        : "all";
+      setSelectedGithubRepo(selected);
+      localStorage.setItem(githubRepoKey, selected);
+      return repositories;
+    } catch (loadError) {
+      setGithubConfigured(false);
+      setGithubRepos([]);
+      setError(`Could not load GitHub repositories: ${loadError.message}`);
+      return [];
+    }
+  }, [githubRepoKey]);
+
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const available = await refreshSessions();
+        const [available] = await Promise.all([refreshSessions(), loadGithubRepos()]);
         if (!active) return;
         const remembered = localStorage.getItem(activeKey);
         const selected = available.find((session) => session.id === remembered) || available[0];
@@ -229,7 +256,7 @@ export function ChatWorkspace({ account }) {
     return () => {
       active = false;
     };
-  }, [activeKey, createSession, loadHistory, refreshSessions, setSessionInfo]);
+  }, [activeKey, createSession, loadHistory, loadGithubRepos, refreshSessions, setSessionInfo]);
 
   const selectSession = useCallback(async (id) => {
     if (running || id === sessionId) return;
@@ -281,7 +308,12 @@ export function ChatWorkspace({ account }) {
     try {
       const data = await api("/api/dev-agent", {
         method: "POST",
-        body: JSON.stringify({ message: text, sessionId: currentSession, model: selectedModel }),
+        body: JSON.stringify({
+          message: text,
+          sessionId: currentSession,
+          model: selectedModel,
+          githubRepo: selectedGithubRepo,
+        }),
       });
       let response = data.response || "(no response)";
       const applied = (data.applied || []).map((file) => `${file.action}: ${file.path}`);
@@ -302,7 +334,7 @@ export function ChatWorkspace({ account }) {
     } finally {
       setRunning(false);
     }
-  }, [refreshSessions, selectedModel, sessionId]);
+  }, [refreshSessions, selectedGithubRepo, selectedModel, sessionId]);
 
   const runtimeMessages = useMemo(
     () => messages.map((message, index) => ({ ...message, id: message.id || `message-${index}` })),
@@ -356,6 +388,25 @@ export function ChatWorkspace({ account }) {
             <p>Working as {account.name || account.username || "signed-in user"}</p>
           </div>
           <div className="chat-controls">
+            <label className="github-picker">
+              <span>Codebase</span>
+              <select
+                aria-label="Choose GitHub repository scope"
+                value={selectedGithubRepo}
+                onChange={(event) => {
+                  const nextRepo = event.target.value;
+                  setSelectedGithubRepo(nextRepo);
+                  localStorage.setItem(githubRepoKey, nextRepo);
+                }}
+                disabled={loading || running || !githubConfigured}
+                title={githubConfigured ? "Search all repositories or limit answers to one repository" : "Configure GITHUB_PAT on the server to enable repository search"}
+              >
+                <option value="all">All repositories</option>
+                {githubRepos.map((repo) => (
+                  <option key={repo.fullName} value={repo.fullName}>{repo.fullName}</option>
+                ))}
+              </select>
+            </label>
             <label className="model-picker">
               <span>Model</span>
               <select

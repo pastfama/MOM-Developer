@@ -9,7 +9,7 @@ A landing page with Microsoft Entra ID (Azure AD) single sign-on, plus a chat in
 - **Knows who you are** — Microsoft profile (name, email, Entra ID) flows into every agent session
 - **Remembers everything** — Per-user conversation history persisted across sessions
 - **Knows your Azure** — Live inventory of your Azure resources injected into the system prompt
-- **Knows your GitHub** — All your repositories, languages, and descriptions available to the agent
+- **Searches your GitHub** — Choose a repository or search across connected repositories; relevant source excerpts are fetched for each code question and cited by file link
 
 ## Tech stack
 
@@ -74,6 +74,22 @@ History survives page reloads, browser restarts and server restarts, and is
 replayed into the model on every turn. Sessions are listed in the sidebar so any
 earlier conversation can be reopened.
 
+## GitHub source retrieval
+
+GitHub knowledge is retrieved at question time rather than baked into model
+weights. The **Codebase** picker scopes a question to one repository or all
+repositories accessible to the server's GitHub token. For code-related questions,
+the backend searches GitHub Code Search, fetches up to three matching files, and
+adds short, line-numbered excerpts and source links to the model context. The
+assistant is instructed to cite those links and treat repository contents as
+untrusted input. Results are cached in memory for one minute; no repository source
+is stored in the conversation database or a separate index.
+
+The token must be able to list repositories and read their contents. Configure
+`GITHUB_PAT` in the server's environment (not in the browser or repository); use
+a GitHub App installation token or a read-only token limited to the repositories
+the assistant should access. GitHub search API permissions and rate limits apply.
+
 ## API
 
 | Method | Route | Purpose |
@@ -83,6 +99,7 @@ earlier conversation can be reopened.
 | `GET` | `/api/sessions` | List this user's saved sessions |
 | `POST` | `/api/sessions` | Start a new session |
 | `DELETE` | `/api/sessions/:id` | Delete a session |
+| `GET` | `/api/github/repos` | List connected repositories for the codebase picker |
 | `GET` | `/api/health` | Config check (key present, auto-apply, data dir) |
 
 The React frontend is built to `dev-portal/dist/`; the Node server serves only
@@ -127,7 +144,7 @@ npm test                  # run the test suite
 | `FOUNDRY_MODEL_DEPLOYMENT` | Foundry model deployment name | `gpt-4.1-mini` |
 | `FOUNDRY_MODEL_GPT5_MINI` | Foundry deployment name for GPT-5 mini in the model picker | `gpt-5-mini` |
 | `AGENT_ID` | Legacy alias for `FOUNDRY_MODEL_DEPLOYMENT` | *(unset)* |
-| `GITHUB_PAT` | GitHub personal access token (repo + read:user) | *(required for repo context)* |
+| `GITHUB_PAT` | Server-side GitHub token for listing repos, searching code, and reading source | *(optional; required for repository context)* |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `8cce2fe7-7c75-4969-9da9-707aadd13e52` |
 | `AZURE_TENANT_ID` | Azure AD tenant ID | `185b412d-bddc-454b-9987-40628582c63c` |
 | `DATA_DIR` | Where conversations are persisted | `.data` |
@@ -213,6 +230,7 @@ Local development has no identity, so either set `FOUNDRY_API_KEY` with
 
 - Production uses managed identity — no Foundry key is deployed at all
 - Never commit API keys, PATs, or client secrets to this repo
+- GitHub source access stays on the server; use read-only repository permissions and keep `GITHUB_PAT` out of browser code
 - Use GitHub Secrets / Azure App Settings for all credentials
 - The Microsoft access token is sent as `Authorization: Bearer <token>` to `/api/dev-agent`
 - The backend validates the token via Microsoft Graph `/me`
