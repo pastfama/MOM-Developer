@@ -125,6 +125,7 @@ npm test                  # run the test suite
 | `FOUNDRY_CLIENT_ID` | Client id of a *user-assigned* identity, if used | *(system-assigned)* |
 | `FOUNDRY_PROJECT_ENDPOINT` | Foundry project endpoint | `https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry` |
 | `FOUNDRY_MODEL_DEPLOYMENT` | Foundry model deployment name | `gpt-4.1-mini` |
+| `FOUNDRY_MODEL_GPT5_MINI` | Foundry deployment name for GPT-5 mini in the model picker | `gpt-5-mini` |
 | `AGENT_ID` | Legacy alias for `FOUNDRY_MODEL_DEPLOYMENT` | *(unset)* |
 | `GITHUB_PAT` | GitHub personal access token (repo + read:user) | *(required for repo context)* |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID | `8cce2fe7-7c75-4969-9da9-707aadd13e52` |
@@ -132,6 +133,11 @@ npm test                  # run the test suite
 | `DATA_DIR` | Where conversations are persisted | `.data` |
 | `DEV_AGENT_AUTO_APPLY` | Write the agent's file blocks into the repo (`0` disables) | `1` |
 | `DEV_AGENT_APPLY_ROOT` | Tree the agent may write into | repo root |
+
+The chat model picker offers GPT-4.1 mini and GPT-5 mini. Deploy GPT-5 mini in
+the configured Foundry project and set `FOUNDRY_MODEL_GPT5_MINI` to that
+deployment's name before selecting it. The default matches the model ID only
+when the Foundry deployment itself is named `gpt-5-mini`.
 
 ## Microsoft Entra ID setup
 

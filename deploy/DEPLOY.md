@@ -106,6 +106,19 @@ journalctl -u dev-agent -n 50 --no-pager
 
 `auth.apiKeyPresent` must be **false** in production.
 
+## Enable GPT-5 mini in the model picker
+
+The portal offers GPT-4.1 mini and GPT-5 mini. In the configured Foundry
+project, create a GPT-5 mini on-demand deployment. Then set
+`FOUNDRY_MODEL_GPT5_MINI` in `/etc/dev-agent.env` to its deployment name (the
+default is `gpt-5-mini`) and restart the service:
+
+```bash
+sudo systemctl restart dev-agent
+```
+
+The picker can send requests to GPT-5 mini only after that deployment exists.
+
 ## Upgrade / rollback / uninstall
 
 ```bash

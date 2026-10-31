@@ -37,6 +37,7 @@ test.before(async () => {
   process.env.FOUNDRY_PROJECT_ENDPOINT =
     "https://unit-test.services.ai.azure.com/api/projects/unit-test";
   process.env.FOUNDRY_MODEL_DEPLOYMENT = "unit-test-deployment";
+  process.env.FOUNDRY_MODEL_GPT5_MINI = "unit-test-gpt5mini-deployment";
   process.env.GITHUB_PAT = "";
   process.env.DEV_AGENT_AUTO_APPLY = "1";
 
@@ -129,6 +130,10 @@ test("health endpoint reports configuration", async () => {
   assert.equal(data.ok, true);
   assert.equal(data.foundryConfigured, true);
   assert.equal(data.autoApply, true);
+  assert.deepEqual(data.models, [
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-5-mini", label: "GPT-5 mini" },
+  ]);
 });
 
 test("unknown API routes return JSON, never HTML", async () => {
@@ -156,6 +161,7 @@ test("a turn writes the agent's files into the repo", async () => {
   });
   assert.equal(res.status, 200);
   const data = await res.json();
+  assert.equal(data.model, "gpt-4.1-mini");
   assert.equal(data.applied.length, 1);
   assert.equal(data.applied[0].path, "dev-portal/js/feature.js");
   assert.equal(data.applied[0].action, "created");
@@ -258,4 +264,27 @@ test("serves the security headers and cache policy SWA used to provide", async (
 
   const api = await fetch(base + "/api/health");
   assert.equal(api.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("a selected GPT-5 mini maps to its configured Foundry deployment", async () => {
+  const res = await fetch(base + "/api/dev-agent", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "use the newer model", model: "gpt-5-mini" }),
+  });
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.model, "gpt-5-mini");
+  assert.equal(foundryCalls.at(-1).model, "unit-test-gpt5mini-deployment");
+});
+
+test("rejects model ids that are not in the configured choices", async () => {
+  const callCount = foundryCalls.length;
+  const res = await fetch(base + "/api/dev-agent", {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "use an unknown model", model: "arbitrary-deployment" }),
+  });
+  assert.equal(res.status, 400);
+  assert.equal(foundryCalls.length, callCount);
 });
