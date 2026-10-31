@@ -24,9 +24,12 @@ const FOUNDRY_EP =
 const AGENT_ID =
   process.env.FOUNDRY_MODEL_DEPLOYMENT || process.env.AGENT_ID || "gpt-4.1-mini";
 const FOUNDRY_GPT5_MINI_DEPLOYMENT = process.env.FOUNDRY_MODEL_GPT5_MINI || "gpt-5-mini";
+// Labels follow the real deployment names, so a picker option never claims to
+// be a model that is not actually deployed.
+const prettyDeployment = (name) => name.replace(/-/g, " ").replace(/^gpt/i, "GPT");
 const AVAILABLE_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini", deployment: AGENT_ID },
-  { id: "gpt-5-mini", label: "GPT-5 mini", deployment: FOUNDRY_GPT5_MINI_DEPLOYMENT },
+  { id: "gpt-4.1-mini", label: prettyDeployment(AGENT_ID), deployment: AGENT_ID },
+  { id: "gpt-5-mini", label: prettyDeployment(FOUNDRY_GPT5_MINI_DEPLOYMENT), deployment: FOUNDRY_GPT5_MINI_DEPLOYMENT },
 ];
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const FOUNDRY_KEY = process.env.FOUNDRY_API_KEY || "";
