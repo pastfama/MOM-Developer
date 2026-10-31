@@ -41,6 +41,11 @@ const starterPrompts = [
   },
 ];
 
+const modelOptions = [
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+  { id: "gpt-5-mini", label: "GPT-5 mini" },
+];
+
 async function api(path, options = {}) {
   const token = await window.getAccessToken();
   const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
@@ -162,6 +167,11 @@ function RuntimeThread({ messages, onNew, loading, running }) {
 export function ChatWorkspace({ account }) {
   const accountKey = account.homeAccountId || account.username || "default";
   const activeKey = `dev-agent:active:${accountKey}`;
+  const modelKey = `dev-agent:model:${accountKey}`;
+  const [selectedModel, setSelectedModel] = useState(() => {
+    const saved = localStorage.getItem(modelKey);
+    return modelOptions.some((model) => model.id === saved) ? saved : "gpt-4.1-mini";
+  });
   const [sessions, setSessions] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -271,7 +281,7 @@ export function ChatWorkspace({ account }) {
     try {
       const data = await api("/api/dev-agent", {
         method: "POST",
-        body: JSON.stringify({ message: text, sessionId: currentSession }),
+        body: JSON.stringify({ message: text, sessionId: currentSession, model: selectedModel }),
       });
       let response = data.response || "(no response)";
       const applied = (data.applied || []).map((file) => `${file.action}: ${file.path}`);
@@ -292,7 +302,7 @@ export function ChatWorkspace({ account }) {
     } finally {
       setRunning(false);
     }
-  }, [refreshSessions, sessionId]);
+  }, [refreshSessions, selectedModel, sessionId]);
 
   const runtimeMessages = useMemo(
     () => messages.map((message, index) => ({ ...message, id: message.id || `message-${index}` })),
@@ -345,10 +355,29 @@ export function ChatWorkspace({ account }) {
             <h1>Engineering assistant</h1>
             <p>Working as {account.name || account.username || "signed-in user"}</p>
           </div>
-          <span className={`status-label${running ? " is-running" : ""}`} role="status">
-            <span className="status-dot" aria-hidden="true" />
-            {running ? "Working…" : "Ready"}
-          </span>
+          <div className="chat-controls">
+            <label className="model-picker">
+              <span>Model</span>
+              <select
+                aria-label="Choose model"
+                value={selectedModel}
+                onChange={(event) => {
+                  const nextModel = event.target.value;
+                  setSelectedModel(nextModel);
+                  localStorage.setItem(modelKey, nextModel);
+                }}
+                disabled={loading || running}
+              >
+                {modelOptions.map((model) => (
+                  <option key={model.id} value={model.id}>{model.label}</option>
+                ))}
+              </select>
+            </label>
+            <span className={`status-label${running ? " is-running" : ""}`} role="status">
+              <span className="status-dot" aria-hidden="true" />
+              {running ? "Working…" : "Ready"}
+            </span>
+          </div>
         </div>
         {error && <div className="chat-error" role="alert">{error}</div>}
         <RuntimeThread messages={runtimeMessages} onNew={onNew} loading={loading} running={running} />

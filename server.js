@@ -23,6 +23,12 @@ const FOUNDRY_EP =
   "https://fameshire-foundry-resource.services.ai.azure.com/api/projects/fameshire-foundry";
 const AGENT_ID =
   process.env.FOUNDRY_MODEL_DEPLOYMENT || process.env.AGENT_ID || "gpt-4.1-mini";
+const FOUNDRY_GPT5_MINI_DEPLOYMENT = process.env.FOUNDRY_MODEL_GPT5_MINI || "gpt-5-mini";
+const AVAILABLE_MODELS = [
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini", deployment: AGENT_ID },
+  { id: "gpt-5-mini", label: "GPT-5 mini", deployment: FOUNDRY_GPT5_MINI_DEPLOYMENT },
+];
+const DEFAULT_MODEL = "gpt-4.1-mini";
 const FOUNDRY_KEY = process.env.FOUNDRY_API_KEY || "";
 // Managed identity is the default; ENTRA ID needs no secret at all.
 // auto = try identity, fall back to FOUNDRY_API_KEY | entra = identity only | key = key only
@@ -285,6 +291,11 @@ async function handleAgentTurn(req, res) {
   if (!message || typeof message !== "string") {
     return writeJson(res, 400, { error: { message: "message is required" } });
   }
+  const selectedModel = parsed.model || DEFAULT_MODEL;
+  const model = AVAILABLE_MODELS.find((choice) => choice.id === selectedModel);
+  if (!model) {
+    return writeJson(res, 400, { error: { message: "Unsupported model" } });
+  }
   const autoApply = parsed.autoApply === false ? false : AUTO_APPLY;
 
   // Load the persisted thread — this is what makes memory survive restarts.
@@ -323,7 +334,7 @@ async function handleAgentTurn(req, res) {
     fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth.headers },
-      body: JSON.stringify({ model: AGENT_ID, input }),
+      body: JSON.stringify({ model: model.deployment, input }),
     });
 
   let responseText;
@@ -379,6 +390,7 @@ async function handleAgentTurn(req, res) {
 
   writeJson(res, 200, {
     response: responseText,
+    model: model.id,
     sessionId: saved.id,
     session: { id: saved.id, title: saved.title, updatedAt: saved.updatedAt },
     user: profile,
@@ -509,6 +521,7 @@ function createServer() {
         return writeJson(res, 200, {
           ok: true,
           agent: AGENT_ID,
+          models: AVAILABLE_MODELS.map(({ id, label }) => ({ id, label })),
           // "configured" means an auth path exists, not that it has been exercised.
           foundryConfigured: FOUNDRY_AUTH !== "key" || Boolean(FOUNDRY_KEY),
           auth: {
