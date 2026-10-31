@@ -309,6 +309,19 @@ button { color: inherit; }
 .chat-header h1 { margin: 7px 0 0; font-size: 18px; letter-spacing: -0.45px; }
 .chat-header p { margin: 4px 0 0; color: var(--text-subtle); font-size: 11px; }
 .chat-controls { display: flex; align-items: center; gap: 18px; }
+.github-picker { display: flex; align-items: center; gap: 8px; color: var(--text-subtle); font-size: 10px; }
+.github-picker select {
+  max-width: 210px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.github-picker select:disabled { opacity: 0.6; cursor: not-allowed; }
 .model-picker { display: flex; align-items: center; gap: 8px; color: var(--text-subtle); font-size: 10px; }
 .model-picker select {
   max-width: 150px;
@@ -498,6 +511,8 @@ button { color: inherit; }
   .chat-overline { font-size: 8px; }
   .chat-header h1 { font-size: 16px; }
   .chat-controls { gap: 10px; }
+  .github-picker { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 9px; }
+  .github-picker select { max-width: 150px; padding: 6px 7px; font-size: 10px; }
   .model-picker { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 9px; }
   .model-picker select { max-width: 128px; padding: 6px 7px; font-size: 10px; }
   .status-label { font-size: 10px; }
@@ -515,7 +530,7 @@ button { color: inherit; }
 
 @media (max-width: 420px) {
   .chat-header p { max-width: 205px; line-height: 1.5; }
-  .chat-controls { align-items: flex-end; flex-direction: column-reverse; gap: 8px; }
+  .chat-controls { align-items: flex-end; flex-direction: column; gap: 8px; }
   .sidebar-workspace small { font-size: 9px; }
   .btn-new { gap: 5px; padding: 8px; }
   .welcome-capabilities { justify-content: flex-start; }

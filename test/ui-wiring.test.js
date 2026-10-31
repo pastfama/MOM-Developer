@@ -61,6 +61,15 @@ test("the API remains same-origin in production and uses the existing routes", (
   assert.match(workspace, /\/api\/dev-agent\/history/);
 });
 
+test("the chat can scope source retrieval to a GitHub repository", () => {
+  assert.match(workspace, /\/api\/github\/repos/);
+  assert.match(workspace, /Choose GitHub repository scope/);
+  assert.match(workspace, /All repositories/);
+  assert.match(workspace, /githubRepo: selectedGithubRepo/);
+  assert.match(workspace, /dev-agent:github-repo:/);
+  assert.match(styles, /\.github-picker select/);
+});
+
 test("the production installer builds the Vite frontend from locked dependencies", () => {
   const installer = read("deploy/install.sh");
   assert.match(installer, /package-lock\.json/);
