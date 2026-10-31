@@ -27,6 +27,12 @@ test.before(async () => {
   global.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (baseRef && u.startsWith(baseRef)) return realFetch(url, opts);
+    if (u.includes("graph.microsoft.com")) {
+      return new Response(
+        JSON.stringify({ displayName: "Ada", userPrincipalName: "ada@example.com", id: "user-1" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
     if (u.startsWith("http://msi.internal/msi/token")) {
       tokenSeq += 1;
       return new Response(
@@ -73,7 +79,7 @@ test.after(async () => {
 test("calls Foundry with a bearer token from the identity endpoint, no API key", async () => {
   const res = await fetch(baseRef + "/api/dev-agent", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { Authorization: "Bearer entra-user-token", "Content-Type": "application/json" },
     body: JSON.stringify({ message: "build it keyless" }),
   });
   assert.equal(res.status, 200);
@@ -93,7 +99,7 @@ test("the refreshed token is cached for subsequent turns", async () => {
   foundryCalls.length = 0;
   const res = await fetch(baseRef + "/api/dev-agent", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { Authorization: "Bearer entra-user-token", "Content-Type": "application/json" },
     body: JSON.stringify({ message: "again" }),
   });
   assert.equal(res.status, 200);
