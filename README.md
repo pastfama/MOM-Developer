@@ -231,6 +231,7 @@ Local development has no identity, so either set `FOUNDRY_API_KEY` with
 - Production uses managed identity — no Foundry key is deployed at all
 - Never commit API keys, PATs, or client secrets to this repo
 - GitHub source access stays on the server; use read-only repository permissions and keep `GITHUB_PAT` out of browser code
+- Chat, session, and GitHub repository APIs require a Microsoft Graph-validated sign-in
 - Use GitHub Secrets / Azure App Settings for all credentials
 - The Microsoft access token is sent as `Authorization: Bearer <token>` to `/api/dev-agent`
 - The backend validates the token via Microsoft Graph `/me`

@@ -191,6 +191,13 @@ test("lists GitHub repositories for the repository scope picker", async () => {
   assert.equal(data.repositories[0].language, "Lua");
 });
 
+test("does not expose connected repository names without Microsoft sign-in", async () => {
+  const res = await fetch(base + "/api/github/repos");
+  assert.equal(res.status, 401);
+  const data = await res.json();
+  assert.equal(data.error.code, "unauthorized");
+});
+
 test("removes conversational filler from GitHub code-search terms", () => {
   assert.deepEqual(codeSearchTerms("How does the NPC schedule work?"), ["npc", "schedule"]);
 });

@@ -307,7 +307,9 @@ async function searchGitHubCode(message, selectedRepo = "all") {
   });
 }
 
-async function handleGitHubRepos(res) {
+async function handleGitHubRepos(req, res) {
+  const identity = await requireIdentity(req, res);
+  if (!identity) return;
   if (!GITHUB_PAT) return writeJson(res, 200, { configured: false, repositories: [] });
   try {
     const repositories = await getGitHubRepos();
@@ -353,6 +355,15 @@ async function resolveIdentity(req) {
   else if (profile.email) userKey = "email:" + profile.email.toLowerCase();
   else userKey = "local:anonymous";
   return { profile, userKey, authenticated: Boolean(profile.id || profile.email) };
+}
+
+async function requireIdentity(req, res) {
+  const identity = await resolveIdentity(req);
+  if (!identity.authenticated) {
+    writeJson(res, 401, { error: { message: "Sign-in is required", code: "unauthorized" } });
+    return null;
+  }
+  return identity;
 }
 
 function extractText(ad) {
@@ -443,7 +454,9 @@ function authFailureMessage() {
 
 // ── POST /api/dev-agent — one conversation turn ──
 async function handleAgentTurn(req, res) {
-  const { profile, userKey } = await resolveIdentity(req);
+  const identity = await requireIdentity(req, res);
+  if (!identity) return;
+  const { profile, userKey } = identity;
   let parsed;
   try {
     parsed = JSON.parse((await readBody(req)) || "{}");
@@ -569,7 +582,9 @@ async function handleAgentTurn(req, res) {
 
 // ── GET /api/dev-agent (or /api/dev-agent/history) — replay a thread ──
 async function handleHistory(req, res, url) {
-  const { userKey } = await resolveIdentity(req);
+  const identity = await requireIdentity(req, res);
+  if (!identity) return;
+  const { userKey } = identity;
   const sessionId = url.searchParams.get("sessionId");
   if (!sessionId) return writeJson(res, 400, { error: { message: "sessionId is required" } });
   const session = await store.get(userKey, sessionId);
@@ -594,7 +609,9 @@ async function handleHistory(req, res, url) {
 
 // ── /api/sessions — list and create ──
 async function handleSessions(req, res) {
-  const { userKey, profile } = await resolveIdentity(req);
+  const identity = await requireIdentity(req, res);
+  if (!identity) return;
+  const { userKey, profile } = identity;
   if (req.method === "GET") {
     const sessions = await store.list(userKey);
     return writeJson(res, 200, { sessions, user: profile });
@@ -611,7 +628,9 @@ async function handleSessions(req, res) {
 }
 
 async function handleSessionDelete(req, res, sessionId) {
-  const { userKey } = await resolveIdentity(req);
+  const identity = await requireIdentity(req, res);
+  if (!identity) return;
+  const { userKey } = identity;
   const ok = await store.remove(userKey, sessionId);
   writeJson(res, ok ? 200 : 404, { deleted: ok, sessionId });
 }
@@ -703,7 +722,7 @@ function createServer() {
       }
 
       if (pathname === "/api/github/repos") {
-        if (req.method === "GET") return await handleGitHubRepos(res);
+        if (req.method === "GET") return await handleGitHubRepos(req, res);
         return writeJson(res, 405, { error: { message: "Method not allowed" } });
       }
 

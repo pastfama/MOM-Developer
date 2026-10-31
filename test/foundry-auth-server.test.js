@@ -39,17 +39,16 @@ test("health reports keyless mode without a key", async () => {
   assert.equal(data.foundryConfigured, true);
 });
 
-test("a turn without an identity returns 503 with actionable guidance", async () => {
+test("a turn without Microsoft sign-in is rejected before calling Foundry", async () => {
   const res = await fetch(base + "/api/dev-agent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: "hello" }),
   });
-  assert.equal(res.status, 503);
+  assert.equal(res.status, 401);
   const data = await res.json();
-  assert.equal(data.error.code, "no_credentials");
-  assert.match(data.error.message, /Cognitive Services User/);
-  assert.match(data.error.message, /IDENTITY_ENDPOINT/);
+  assert.equal(data.error.code, "unauthorized");
+  assert.match(data.error.message, /Sign-in is required/);
 });
 
 test("key mode with no key also fails clearly", async () => {
